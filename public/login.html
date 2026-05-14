@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登录 · 光影集</title>
+<link rel="stylesheet" href="css/style.css" />
+<style>
+  .auth-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg); }
+  .auth-card {
+    width: 400px; max-width: 92vw; padding: 40px 32px;
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--radius-xl); box-shadow: var(--shadow-lg);
+  }
+  .auth-card h1 { font-size: 1.6rem; font-weight: 800; text-align: center; margin-bottom: 4px; }
+  .auth-card .sub { text-align: center; color: var(--text-muted); font-size: .84rem; margin-bottom: 28px; }
+  .auth-form { display: flex; flex-direction: column; gap: 14px; }
+  .auth-form label { font-size: .8rem; font-weight: 600; color: var(--text-secondary); }
+  .auth-form input {
+    padding: 10px 14px; border-radius: var(--radius-sm); font-size: .9rem;
+    background: var(--bg); color: var(--text); border: 1px solid var(--border); outline: none;
+    transition: border-color .2s;
+  }
+  .auth-form input:focus { border-color: var(--accent); }
+  .auth-error { color: #f87171; font-size: .78rem; text-align: center; min-height: 1.2em; }
+  .auth-switch { text-align: center; margin-top: 16px; font-size: .82rem; color: var(--text-muted); }
+  .auth-switch a { color: var(--accent); cursor: pointer; font-weight: 600; }
+  .auth-back { text-align: center; margin-top: 12px; }
+  .auth-back a { color: var(--text-muted); font-size: .8rem; }
+  .auth-success { color: #4ade80; text-align: center; font-size: .82rem; margin-top: 8px; }
+</style>
+</head>
+<body class="auth-page">
+<div class="auth-card">
+  <a href="/" class="logo" style="justify-content:center;margin-bottom:16px;">
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="8" fill="url(#lg)"/><path d="M6 20V8l7 8 3-4 3 4 3-6v10H6z" fill="white" opacity="0.9"/><defs><linearGradient id="lg" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#a855f7"/><stop offset="1" stop-color="#6366f1"/></linearGradient></defs></svg>
+    <span>光影集</span>
+  </a>
+  <h1 id="authTitle">欢迎回来</h1>
+  <p class="sub" id="authSub">登录你的账户继续使用</p>
+  <div class="auth-error" id="authError"></div>
+  <form class="auth-form" id="authForm">
+    <div id="usernameField" style="display:none">
+      <label>用户名</label>
+      <input type="text" id="regUsername" placeholder="2-30个字符" />
+    </div>
+    <div>
+      <label>用户名 / 邮箱</label>
+      <input type="text" id="loginField" placeholder="请输入用户名或邮箱" required />
+    </div>
+    <div>
+      <label>密码</label>
+      <input type="password" id="passwordField" placeholder="至少6位" required minlength="6" />
+    </div>
+    <button type="submit" class="btn-primary btn-full" id="submitBtn">登 录</button>
+  </form>
+  <div class="auth-success" id="authSuccess"></div>
+  <p class="auth-switch" id="authSwitch">
+    还没有账户？<a id="switchLink">立即注册</a>
+  </p>
+  <p class="auth-back"><a href="/">← 返回首页</a></p>
+</div>
+<script>
+  let mode = 'login';
+  const $ = (s) => document.getElementById(s);
+
+  function toggleMode() {
+    mode = mode === 'login' ? 'register' : 'login';
+    $('authTitle').textContent = mode === 'login' ? '欢迎回来' : '创建账户';
+    $('authSub').textContent = mode === 'login' ? '登录你的账户继续使用' : '注册一个新账户';
+    $('submitBtn').textContent = mode === 'login' ? '登 录' : '注 册';
+    $('usernameField').style.display = mode === 'register' ? '' : 'none';
+    $('switchLink').textContent = mode === 'login' ? '立即注册' : '去登录';
+    $('authSwitch').innerHTML = mode === 'login'
+      ? '还没有账户？<a id="switchLink">立即注册</a>'
+      : '已有账户？<a id="switchLink">去登录</a>';
+    document.getElementById('switchLink').onclick = toggleMode;
+    $('authError').textContent = '';
+  }
+  document.getElementById('switchLink').onclick = toggleMode;
+
+  $('authForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('authError').textContent = '';
+    $('authSuccess').textContent = '';
+
+    if (mode === 'login') {
+      const login = $('loginField').value.trim();
+      const password = $('passwordField').value;
+      if (!login || !password) { $('authError').textContent = '请填写所有字段'; return; }
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ login, password })
+        });
+        const data = await res.json();
+        if (!res.ok) { $('authError').textContent = data.error; return; }
+        localStorage.setItem('wp_token', data.token);
+        localStorage.setItem('wp_user', JSON.stringify(data.user));
+        $('authSuccess').textContent = '登录成功！正在跳转...';
+        setTimeout(() => { window.location.href = '/'; }, 800);
+      } catch { $('authError').textContent = '网络错误，请重试'; }
+    } else {
+      const username = $('regUsername').value.trim();
+      const email = $('loginField').value.trim();
+      const password = $('passwordField').value;
+      if (!username || !email || !password) { $('authError').textContent = '请填写所有字段'; return; }
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) { $('authError').textContent = data.error; return; }
+        localStorage.setItem('wp_token', data.token);
+        localStorage.setItem('wp_user', JSON.stringify(data.user));
+        $('authSuccess').textContent = '注册成功！正在跳转...';
+        setTimeout(() => { window.location.href = '/'; }, 800);
+      } catch { $('authError').textContent = '网络错误，请重试'; }
+    }
+  });
+
+  // Auto-redirect if already logged in
+  if (localStorage.getItem('wp_token')) {
+    window.location.href = '/';
+  }
+</script>
+</body>
+</html>
