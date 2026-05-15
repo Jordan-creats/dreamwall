@@ -42,7 +42,8 @@ export function initToolbar() {
   });
 
   // ── Time filter chips ──────────────
-  document.querySelector('.toolbar-right').addEventListener('click', (e) => {
+  const toolbarRight = document.querySelector('.toolbar-right');
+  if (toolbarRight) toolbarRight.addEventListener('click', (e) => {
     const chip = e.target.closest('[data-time]');
     if (!chip) return;
     const time = chip.dataset.time;

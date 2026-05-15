@@ -6,6 +6,14 @@ import { isViewOnly, showLoginPrompt } from './upload.js';
 let currentIdx = -1;
 
 const $ = (id) => document.getElementById(id);
+function safeOn(id, event, handler) {
+  const el = $(id);
+  if (el) el.addEventListener(event, handler);
+}
+function setText(id, text) {
+  const el = $(id);
+  if (el) el.textContent = text;
+}
 
 // ★ Cloudinary URL 优先 → 本地降级
 function getModalSrc(p) {
@@ -63,80 +71,93 @@ function showContent(preloadedSrc) {
   const img = $('modalImg');
   const vid = $('modalVideo');
   if (isVideo) {
-    img.style.display = 'none';
-    vid.style.display = '';
-    vid.querySelector('source').src = fullSrc;
-    vid.load();
-    vid.play().catch(() => {});
-    $('modalVideoControls').style.display = '';
+    if (img) img.style.display = 'none';
+    if (vid) {
+      vid.style.display = '';
+      const src = vid.querySelector('source');
+      if (src) src.src = fullSrc;
+      vid.load();
+      vid.play().catch(() => {});
+    }
+    const vc = $('modalVideoControls');
+    if (vc) vc.style.display = '';
   } else {
-    vid.style.display = 'none';
-    vid.pause();
-    img.style.display = '';
-    img.src = fullSrc;
-    $('modalVideoControls').style.display = 'none';
+    if (vid) { vid.style.display = 'none'; vid.pause(); }
+    if (img) { img.style.display = ''; img.src = fullSrc; }
+    const vc = $('modalVideoControls');
+    if (vc) vc.style.display = 'none';
   }
 
   // Badge
   const badge = $('modalBadge');
-  if (isVideo) { badge.className = 'modal-badge video'; badge.textContent = '🎬 动态壁纸'; badge.style.display = ''; }
-  else { badge.className = 'modal-badge image'; badge.textContent = '🖼️ 静态壁纸'; badge.style.display = ''; }
+  if (badge) {
+    if (isVideo) { badge.className = 'modal-badge video'; badge.textContent = '🎬 动态壁纸'; badge.style.display = ''; }
+    else { badge.className = 'modal-badge image'; badge.textContent = '🖼️ 静态壁纸'; badge.style.display = ''; }
+  }
 
   // Info
-  $('modalTitle').textContent = p.title || p.original_name;
-  $('modalDesc').textContent = p.description || '';
-  $('infoType').textContent = isVideo ? '动态壁纸' : '静态壁纸';
-  $('infoRes').textContent = `${p.width} × ${p.height}`;
-  $('infoSize').textContent = formatSize(p.file_size);
-  $('infoDownloads').textContent = p.download_count;
-  $('infoDate').textContent = formatDate(p.created_at);
-  $('infoAlbum').textContent = p.album_name || '未分类';
-  $('modalCounter').textContent = `${currentIdx + 1} / ${photos.length}`;
+  setText('modalTitle', p.title || p.original_name);
+  setText('modalDesc', p.description || '');
+  setText('infoType', isVideo ? '动态壁纸' : '静态壁纸');
+  setText('infoRes', `${p.width} × ${p.height}`);
+  setText('infoSize', formatSize(p.file_size));
+  setText('infoDownloads', String(p.download_count));
+  setText('infoDate', formatDate(p.created_at));
+  setText('infoAlbum', p.album_name || '未分类');
+  setText('modalCounter', `${currentIdx + 1} / ${photos.length}`);
 
-  // Duration row
+  // Duration row (optional)
   const durRow = $('infoDurationRow');
-  if (isVideo) {
-    durRow.style.display = '';
-    $('infoDuration').textContent = '加载中...';
-    // Update duration when metadata loaded
-    vid.onloadedmetadata = () => {
-      if (vid.duration && isFinite(vid.duration)) {
-        $('infoDuration').textContent = formatDuration(vid.duration);
-        // Update width/height from video
-        if (!p.width || !p.height) {
-          $('infoRes').textContent = `${vid.videoWidth} × ${vid.videoHeight}`;
+  if (durRow) {
+    if (isVideo) {
+      durRow.style.display = '';
+      setText('infoDuration', '加载中...');
+      if (vid) vid.onloadedmetadata = () => {
+        if (vid.duration && isFinite(vid.duration)) {
+          setText('infoDuration', formatDuration(vid.duration));
+          if (!p.width || !p.height) {
+            setText('infoRes', `${vid.videoWidth} × ${vid.videoHeight}`);
+          }
         }
-      }
-    };
-  } else {
-    durRow.style.display = 'none';
+      };
+    } else {
+      durRow.style.display = 'none';
+    }
   }
 
   // Tags
   const tags = (p.tags || '').split(',').map(t => t.trim()).filter(Boolean);
-  $('modalTags').innerHTML = tags.length
+  const tagsEl = $('modalTags');
+  if (tagsEl) tagsEl.innerHTML = tags.length
     ? tags.map(t => `<span class="modal-tag">${escapeHtml(t)}</span>`).join('')
     : '';
 
   // IDs
-  $('modalTitle').dataset.id = p.id;
-  $('modalDesc').dataset.id = p.id;
-  $('modalDownload').dataset.id = p.id;
-  $('modalFavorite').dataset.id = p.id;
+  const titleEl = $('modalTitle');
+  const descEl = $('modalDesc');
+  const dlEl = $('modalDownload');
+  const favEl = $('modalFavorite');
+  if (titleEl) titleEl.dataset.id = p.id;
+  if (descEl) descEl.dataset.id = p.id;
+  if (dlEl) dlEl.dataset.id = p.id;
+  if (favEl) favEl.dataset.id = p.id;
 
   // Download
-  const dl = $('modalDownload');
-  dl.href = getModalSrc(p);
-  dl.download = p.original_name || p.filename;
-  $('modalDownloadText').textContent = isVideo ? '下载视频' : '下载原图';
+  if (dlEl) {
+    dlEl.href = getModalSrc(p);
+    dlEl.download = p.original_name || p.filename;
+  }
+  setText('modalDownloadText', isVideo ? '下载视频' : '下载原图');
 
-  // Play toggle button in sidebar
+  // Play toggle button in sidebar (optional)
   const playToggle = $('modalPlayToggle');
-  if (isVideo) {
-    playToggle.style.display = '';
-    updatePlayToggle();
-  } else {
-    playToggle.style.display = 'none';
+  if (playToggle) {
+    if (isVideo) {
+      playToggle.style.display = '';
+      updatePlayToggle();
+    } else {
+      playToggle.style.display = 'none';
+    }
   }
 
   // Favorite
@@ -145,21 +166,27 @@ function showContent(preloadedSrc) {
 
 function updatePlayToggle() {
   const vid = $('modalVideo');
+  if (!vid) return;
+  const playIcon = $('playIcon');
+  const playText = $('playText');
   if (vid.paused) {
-    $('playIcon').innerHTML = '<path d="M8 5v14l11-7z"/>';
-    $('playText').textContent = '播放';
+    if (playIcon) playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+    if (playText) playText.textContent = '播放';
   } else {
-    $('playIcon').innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
-    $('playText').textContent = '暂停';
+    if (playIcon) playIcon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+    if (playText) playText.textContent = '暂停';
   }
 }
 
 function updateFavButton(id, faved) {
-  $('modalFavorite').dataset.id = id;
-  $('favIcon').innerHTML = faved
+  const favBtn = $('modalFavorite');
+  const favIcon = $('favIcon');
+  const favText = $('favText');
+  if (favBtn) favBtn.dataset.id = id;
+  if (favIcon) favIcon.innerHTML = faved
     ? '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21.7l7.8-7.8 1.1-1.1a5.5 5.5 0 0 0 0-7.8Z" fill="#ff4070" stroke="#ff4070"/>'
     : '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21.7l7.8-7.8 1.1-1.1a5.5 5.5 0 0 0 0-7.8Z"/>';
-  $('favText').textContent = faved ? '已收藏' : '收藏';
+  if (favText) favText.textContent = faved ? '已收藏' : '收藏';
 }
 
 /* ── Init ──────────────────────────── */
@@ -168,28 +195,31 @@ export function initModal() {
   if (modalInited) return;
   modalInited = true;
 
-  $('modalClose').addEventListener('click', closeModal);
-  $('modalBackdrop').addEventListener('click', closeModal);
-  $('modalPrev').addEventListener('click', prev);
-  $('modalNext').addEventListener('click', next);
+  safeOn('modalClose', 'click', closeModal);
+  safeOn('modalBackdrop', 'click', closeModal);
+  safeOn('modalPrev', 'click', prev);
+  safeOn('modalNext', 'click', next);
 
-  // Video control buttons
-  $('modalPlayBtn').addEventListener('click', () => {
+  // Video control buttons (optional — only if present in DOM)
+  safeOn('modalPlayBtn', 'click', () => {
     const vid = $('modalVideo');
-    if (vid.paused) vid.play().catch(() => {});
-    else vid.pause();
+    if (vid && vid.paused) vid.play().catch(() => {});
+    else if (vid) vid.pause();
     updatePlayToggle();
   });
 
-  $('modalVideo').addEventListener('play', updatePlayToggle);
-  $('modalVideo').addEventListener('pause', updatePlayToggle);
-  $('modalVideo').addEventListener('ended', () => { next(); });
+  const modalVideo = $('modalVideo');
+  if (modalVideo) {
+    modalVideo.addEventListener('play', updatePlayToggle);
+    modalVideo.addEventListener('pause', updatePlayToggle);
+    modalVideo.addEventListener('ended', () => { next(); });
+  }
 
-  // Sidebar play toggle
-  $('modalPlayToggle').addEventListener('click', () => {
+  // Sidebar play toggle (optional)
+  safeOn('modalPlayToggle', 'click', () => {
     const vid = $('modalVideo');
-    if (vid.paused) vid.play().catch(() => {});
-    else vid.pause();
+    if (vid && vid.paused) vid.play().catch(() => {});
+    else if (vid) vid.pause();
     updatePlayToggle();
   });
 
