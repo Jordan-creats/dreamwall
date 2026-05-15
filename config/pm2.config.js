@@ -7,7 +7,7 @@ module.exports = {
     env: {
       NODE_ENV: 'production',
       PORT: 3000,
-      JWT_SECRET: process.env.JWT_SECRET || 'change-me-in-production',
+      JWT_SECRET: process.env.JWT_SECRET,
     },
     env_development: {
       NODE_ENV: 'development',

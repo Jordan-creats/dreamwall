@@ -17,7 +17,7 @@ export async function getAlbums() {
   return request(`${BASE}/albums`);
 }
 
-export async function getPhotos({ album, search, sort, time, type, page } = {}) {
+export async function getPhotos({ album, search, sort, time, type, page, per_page } = {}) {
   const params = new URLSearchParams();
   if (album && album !== 'all') params.set('album', album);
   if (search) params.set('search', search);
@@ -25,7 +25,7 @@ export async function getPhotos({ album, search, sort, time, type, page } = {}) 
   if (time && time !== 'all') params.set('time', time);
   if (type && type !== 'all') params.set('type', type);
   if (page && page > 1) params.set('page', page);
-  params.set('per_page', '24');
+  params.set('per_page', per_page || '16'); // ★ 每页 16 张，减少首次加载
   const qs = params.toString();
   return request(`${BASE}/photos${qs ? '?' + qs : ''}`);
 }

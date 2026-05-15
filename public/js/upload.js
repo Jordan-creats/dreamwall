@@ -5,6 +5,29 @@ import { loadAndRender } from './gallery.js';
 
 let pendingFiles = [];
 
+function isLoggedIn() {
+  return !!(localStorage.getItem('wp_token') || localStorage.getItem('wp_user'));
+}
+
+// ★ 登录提示弹窗
+function showLoginPrompt() {
+  const overlay = document.getElementById('loginPrompt');
+  const cancelBtn = document.getElementById('promptCancel');
+  if (!overlay) return;
+
+  overlay.classList.add('open');
+
+  function close() {
+    overlay.classList.remove('open');
+  }
+
+  cancelBtn.onclick = close;
+  overlay.onclick = (e) => { if (e.target === overlay) close(); };
+  document.addEventListener('keydown', function onEsc(e) {
+    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onEsc); }
+  });
+}
+
 export function initUpload() {
   const overlay = document.getElementById('uploadOverlay');
   const dropzone = document.getElementById('uploadDropzone');
@@ -13,8 +36,15 @@ export function initUpload() {
   const uploadClose = document.getElementById('uploadClose');
   const uploadConfirm = document.getElementById('uploadConfirm');
 
-  // Open drawer
-  btnUpload.addEventListener('click', (e) => { e.stopPropagation(); openDrawer(); });
+  // Open drawer — ★ 未登录弹窗提示
+  btnUpload.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!isLoggedIn()) {
+      showLoginPrompt();
+      return;
+    }
+    openDrawer();
+  });
 
   // Close drawer
   uploadClose.addEventListener('click', closeDrawer);
@@ -97,21 +127,35 @@ function populateAlbumSelect() {
 async function doUpload() {
   if (!pendingFiles.length) return;
   const albumId = document.getElementById('uploadAlbum').value || null;
+  const progress = document.getElementById('uploadProgress');
+
+  progress.style.display = '';
+  progress.value = 0;
 
   let success = 0;
-  for (const file of pendingFiles) {
+  const errors = [];
+
+  for (let i = 0; i < pendingFiles.length; i++) {
+    const file = pendingFiles[i];
     try {
       await API.uploadPhoto(file, albumId ? Number(albumId) : null);
       success++;
     } catch (err) {
-      toast(`上传失败: ${err.message}`, { error: true });
+      errors.push(`${file.name}: ${err.message}`);
     }
+    progress.value = Math.round(((i + 1) / pendingFiles.length) * 100);
+  }
+
+  progress.style.display = 'none';
+  progress.value = 0;
+
+  if (errors.length) {
+    toast(`上传失败: ${errors[0]}${errors.length > 1 ? ` 等${errors.length}个错误` : ''}`, { error: true, duration: 5000 });
   }
 
   if (success > 0) {
     toast(`成功上传 ${success} 张壁纸`);
     await loadAndRender();
-    // Reload albums to update counts
     try {
       const albums = await API.getAlbums();
       Store.setAlbums(albums);

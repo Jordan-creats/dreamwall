@@ -3,9 +3,11 @@ const multer = require('multer');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
+const cookieParser = require('cookie-parser');
 const path = require('path');
 const crypto = require('crypto');
 const { initDB } = require('./db');
+const { initCloudinary } = require('./config/cloudinary');
 
 // ── Route modules ────────────────────
 const albums = require('./routes/albums');
@@ -26,9 +28,9 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "blob:"],
-      mediaSrc: ["'self'", "blob:"],
-      connectSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "blob:", "https://res.cloudinary.com", "https://*.cloudinary.com"],
+      mediaSrc: ["'self'", "blob:", "https://res.cloudinary.com", "https://*.cloudinary.com"],
+      connectSrc: ["'self'", "https://api.cloudinary.com"],
       fontSrc: ["'self'"],
     },
   },
@@ -71,6 +73,8 @@ if (!isProd) app.use(morgan('dev'));
 // ════════════════════════════════════
 // MULTER
 // ════════════════════════════════════
+const { ALLOWED } = require('./services/upload');
+
 const upload = multer({
   storage: multer.diskStorage({
     destination: path.join(__dirname, 'uploads'),
@@ -82,10 +86,7 @@ const upload = multer({
   }),
   limits: { fileSize: 100 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    const allowed = [
-      'image/jpeg', 'image/png', 'image/webp', 'image/gif',
-      'video/mp4', 'video/webm', 'video/quicktime',
-    ];
+    const allowed = [...ALLOWED.image, ...ALLOWED.video];
     if (allowed.includes(file.mimetype)) {
       cb(null, true);
     } else {
@@ -99,10 +100,14 @@ const upload = multer({
 // ════════════════════════════════════
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser()); // ★ 解析 Cookie → req.cookies
 
 // Static assets with caching
 const staticOpts = isProd ? { maxAge: '7d', immutable: true } : {};
 app.use(express.static(path.join(__dirname, 'public'), staticOpts));
+
+// 本地 uploads — 始终开启作为兜底（Cloudinary 优先，本地兼容旧数据）
+const cld = initCloudinary();
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   ...staticOpts,
   setHeaders: (res, filePath) => {
@@ -112,6 +117,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
     res.setHeader('X-Content-Type-Options', 'nosniff');
   }
 }));
+if (!cld) {
+  console.log('[server] Cloudinary 未配置 — 上传将使用本地存储');
+} else {
+  console.log('[server] Cloudinary 已配置 — 上传优先使用 CDN，本地作为兜底');
+}
 
 // ════════════════════════════════════
 // API ROUTES
@@ -138,13 +148,13 @@ app.get('/robots.txt', (_req, res) => {
 Allow: /
 Disallow: /api/
 Disallow: /uploads/
-Sitemap: ${isProd ? 'https://yourdomain.com' : 'http://localhost:' + PORT}/sitemap.xml`);
+Sitemap: ${process.env.SITE_URL || (isProd ? 'https://yourdomain.com' : 'http://localhost:' + PORT)}/sitemap.xml`);
 });
 
 app.get('/sitemap.xml', (_req, res) => {
   const db = require('./db').getDB();
   const photos = db.prepare("SELECT id, created_at FROM photos WHERE status = 'approved' ORDER BY created_at DESC LIMIT 5000").all();
-  const base = isProd ? 'https://yourdomain.com' : `http://localhost:${PORT}`;
+  const base = process.env.SITE_URL || (isProd ? 'https://yourdomain.com' : `http://localhost:${PORT}`);
 
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
   xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
@@ -179,7 +189,6 @@ app.use((err, _req, res, _next) => {
 initDB();
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
-  if (!isProd) console.log(`   Admin: admin / admin123`);
 });
 
 module.exports = app;

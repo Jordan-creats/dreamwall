@@ -67,15 +67,45 @@ function initDB() {
       photo_id   INTEGER NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
       created_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS banners (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      title       TEXT DEFAULT '',
+      image_url   TEXT NOT NULL,
+      link_url    TEXT DEFAULT '',
+      sort_order  INTEGER DEFAULT 0,
+      is_active   INTEGER DEFAULT 1,
+      created_at  TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS operation_logs (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      admin_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      action      TEXT NOT NULL,
+      target_type TEXT DEFAULT '',
+      target_id   INTEGER DEFAULT 0,
+      detail      TEXT DEFAULT '',
+      created_at  TEXT DEFAULT (datetime('now'))
+    );
   `);
 
-  // Migration: add columns to existing tables if missing
+  // ── Migration: new columns ─────────────
   const photoCols = db.prepare("PRAGMA table_info('photos')").all().map(c => c.name);
+  if (!photoCols.includes('featured')) db.exec("ALTER TABLE photos ADD COLUMN featured INTEGER DEFAULT 0");
+  if (!photoCols.includes('sort_order')) db.exec("ALTER TABLE photos ADD COLUMN sort_order INTEGER DEFAULT 0");
+
+  const userCols = db.prepare("PRAGMA table_info('users')").all().map(c => c.name);
+  if (!userCols.includes('banned')) db.exec("ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0");
+  if (!userCols.includes('banned_reason')) db.exec("ALTER TABLE users ADD COLUMN banned_reason TEXT DEFAULT ''");
+
+  // Migration: add columns to existing tables if missing (continued)
   if (!photoCols.includes('media_type')) db.exec("ALTER TABLE photos ADD COLUMN media_type TEXT DEFAULT 'image'");
   if (!photoCols.includes('thumbnail')) db.exec("ALTER TABLE photos ADD COLUMN thumbnail TEXT DEFAULT ''");
   if (!photoCols.includes('duration')) db.exec("ALTER TABLE photos ADD COLUMN duration REAL DEFAULT 0");
   if (!photoCols.includes('uploader_id')) db.exec("ALTER TABLE photos ADD COLUMN uploader_id INTEGER DEFAULT NULL REFERENCES users(id) ON DELETE SET NULL");
   if (!photoCols.includes('status')) db.exec("ALTER TABLE photos ADD COLUMN status TEXT DEFAULT 'approved'");
+  if (!photoCols.includes('url')) db.exec("ALTER TABLE photos ADD COLUMN url TEXT DEFAULT ''");
+  if (!photoCols.includes('public_id')) db.exec("ALTER TABLE photos ADD COLUMN public_id TEXT DEFAULT ''");
 
   // Seed default albums
   const albumCount = db.prepare('SELECT COUNT(*) AS c FROM albums').get();

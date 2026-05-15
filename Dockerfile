@@ -19,7 +19,6 @@ USER app
 EXPOSE 3000
 
 ENV NODE_ENV=production
-ENV JWT_SECRET=change-me-in-production
 
 HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://localhost:3000/ || exit 1
 

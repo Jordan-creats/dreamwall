@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="pageTitle">壁纸详情 · 光影集</title>
+<meta name="description" content="" id="pageDesc" />
+<meta property="og:title" content="" id="ogTitle" />
+<meta property="og:description" content="" id="ogDesc" />
+<meta property="og:image" content="" id="ogImage" />
+<meta property="og:type" content="article" />
+<link rel="stylesheet" href="css/style.css" />
+<script src="js/shared.js"></script>
+<style>
+  .detail-page { min-height: 100vh; background: var(--bg); padding-bottom: 60px; }
+  .detail-hero {
+    display: flex; max-width: 1200px; margin: 0 auto; padding: 32px 24px;
+    gap: 32px; align-items: flex-start;
+  }
+  .detail-image {
+    flex: 1; min-width: 0; border-radius: var(--radius-lg); overflow: hidden;
+    background: var(--bg-elevated); box-shadow: var(--shadow-lg);
+    position: relative;
+  }
+  .detail-image img, .detail-image video {
+    width: 100%; display: block; border-radius: var(--radius-lg);
+  }
+  .detail-image video { max-height: 70vh; background: #000; }
+  .detail-sidebar {
+    width: 320px; flex-shrink: 0; position: sticky; top: 72px;
+  }
+  .detail-card {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 24px; margin-bottom: 16px;
+  }
+  .detail-card h1 { font-size: 1.3rem; font-weight: 800; line-height: 1.3; }
+  .detail-card .dl-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: .82rem; border-bottom: 1px solid var(--border); }
+  .detail-card .dl-row .dl { color: var(--text-muted); }
+  .detail-card .dl-row .dv { color: var(--text-secondary); font-weight: 500; }
+  .detail-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .detail-tag {
+    padding: 5px 12px; border-radius: 16px; font-size: .76rem; cursor: pointer;
+    background: var(--accent-dim, rgba(168,85,247,.1)); color: var(--accent);
+    border: 1px solid var(--accent, rgba(168,85,247,.25));
+    transition: all .2s;
+  }
+  .detail-tag:hover { background: var(--accent); color: #fff; }
+  .detail-section { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+  .detail-section h2 { font-size: 1.15rem; margin-bottom: 16px; }
+  .related-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .related-card {
+    border-radius: var(--radius); overflow: hidden;
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    transition: var(--transition); cursor: pointer; position: relative;
+  }
+  .related-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .related-card img { width: 100%; aspect-ratio: 16/10; object-fit: cover; display: block; }
+  .related-card .rc-body { padding: 8px 10px; font-size: .78rem; }
+  .related-card .rc-body .t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .related-card .rc-body .m { font-size: .7rem; color: var(--text-muted); margin-top: 2px; }
+  @media (max-width: 800px) {
+    .detail-hero { flex-direction: column; }
+    .detail-sidebar { width: 100%; position: static; }
+  }
+</style>
+</head>
+<body class="detail-page">
+
+<header class="header" id="header">
+  <div class="header-inner">
+    <a href="/" class="logo">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="8" fill="url(#lg)"/><path d="M6 20V8l7 8 3-4 3 4 3-6v10H6z" fill="white" opacity="0.9"/><defs><linearGradient id="lg" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#a855f7"/><stop offset="1" stop-color="#6366f1"/></linearGradient></defs></svg>
+      <span>光影集</span>
+    </a>
+    <div class="header-actions">
+      <a href="/" class="btn-glass">← 返回</a>
+      <button class="btn-primary" id="detailDownload" style="display:none">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        下载
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="detail-hero">
+  <div class="detail-image" id="detailImage"></div>
+  <div class="detail-sidebar">
+    <div class="detail-card" id="detailInfo">
+      <h1 id="dTitle">加载中...</h1>
+      <div class="detail-tags" id="dTags"></div>
+      <div style="margin-top:16px">
+        <div class="dl-row"><span class="dl">分辨率</span><span class="dv" id="dRes">—</span></div>
+        <div class="dl-row"><span class="dl">文件大小</span><span class="dv" id="dSize">—</span></div>
+        <div class="dl-row"><span class="dl">下载次数</span><span class="dv" id="dDls">—</span></div>
+        <div class="dl-row"><span class="dl">上传日期</span><span class="dv" id="dDate">—</span></div>
+        <div class="dl-row"><span class="dl">分类</span><span class="dv" id="dAlbum">—</span></div>
+        <div class="dl-row"><span class="dl">上传者</span><span class="dv" id="dUploader">—</span></div>
+      </div>
+      <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px">
+        <a class="btn-primary btn-full" href="#" id="dDlBtn" download>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          下载原图
+        </a>
+        <button class="btn-glass btn-full" id="dFavBtn">
+          <span id="dFavIcon">♡</span> <span id="dFavText">收藏</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="detail-section" style="margin-top:24px">
+  <h2>相关壁纸</h2>
+  <div class="related-grid" id="relatedGrid"></div>
+</div>
+
+<script>
+const urlParams = new URLSearchParams(window.location.search);
+const photoId = urlParams.get('id');
+
+if (!photoId) window.location.href = '/';
+
+async function load() {
+  try {
+    const res = await fetch(`/api/photos/${photoId}`);
+    const p = await res.json();
+    if (!res.ok) { document.body.innerHTML = '<div class="empty-state" style="padding:100px"><h3>壁纸不存在</h3></div>'; return; }
+
+    // SEO
+    document.title = `${p.title || p.original_name} · 光影集`;
+    document.getElementById('pageDesc').content = p.description || p.title || '高清壁纸下载';
+    document.getElementById('ogTitle').content = p.title || p.original_name;
+    document.getElementById('ogImage').content = getSrc(p);
+
+    // Image
+    const imgWrap = document.getElementById('detailImage');
+    if (p.media_type === 'video') {
+      imgWrap.innerHTML = `<video src="${getSrc(p)}" autoplay loop muted playsinline controls style="width:100%;max-height:70vh"></video>`;
+    } else {
+      imgWrap.innerHTML = `<img src="${getSrc(p)}" alt="${p.title || p.original_name}" />`;
+    }
+
+    // Info
+    document.getElementById('dTitle').textContent = p.title || p.original_name;
+    document.getElementById('dRes').textContent = `${p.width} × ${p.height}`;
+    document.getElementById('dSize').textContent = p.file_size ? (p.file_size / 1048576).toFixed(1) + ' MB' : '—';
+    document.getElementById('dDls').textContent = p.download_count;
+    document.getElementById('dDate').textContent = (p.created_at || '').slice(0, 10);
+    document.getElementById('dAlbum').textContent = p.album_name || '未分类';
+
+    // Uploader
+    if (p.uploader_name) {
+      document.getElementById('dUploader').innerHTML = `<a href="/profile.html?u=${escapeHtml(p.uploader_name)}">${escapeHtml(p.uploader_name)}</a>`;
+    } else {
+      document.getElementById('dUploader').textContent = '—';
+    }
+
+    // Tags
+    const tags = (p.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+    document.getElementById('dTags').innerHTML = tags.map(t =>
+      `<a href="/?search=${encodeURIComponent(t)}" class="detail-tag">${escapeHtml(t)}</a>`
+    ).join('') || '<span style="color:var(--text-muted);font-size:.78rem">暂无标签</span>';
+
+    // Download
+    const dlBtn = document.getElementById('dDlBtn');
+    dlBtn.href = getSrc(p);
+    dlBtn.download = p.original_name || 'wallpaper';
+    dlBtn.addEventListener('click', async (e) => {
+      try { await fetch(`/api/photos/${photoId}/download`, { method: 'POST' }); } catch {}
+    });
+
+    // Favorite
+    document.getElementById('dFavBtn').addEventListener('click', async () => {
+      try {
+        const meRes = await fetch('/api/auth/me');
+        if (!meRes.ok) { window.location.href = '/login.html'; return; }
+      } catch { window.location.href = '/login.html'; return; }
+      const isFaved = document.getElementById('dFavIcon').textContent === '♥';
+      const method = isFaved ? 'DELETE' : 'POST';
+      const res = await fetch(`/api/auth/favorites/${photoId}`, { method });
+      if (res.ok) {
+        document.getElementById('dFavIcon').textContent = isFaved ? '♡' : '♥';
+        document.getElementById('dFavText').textContent = isFaved ? '收藏' : '已收藏';
+        document.getElementById('dFavIcon').style.color = isFaved ? '' : '#ff4070';
+      }
+    });
+
+    // Check if already faved
+    try {
+      const favRes = await fetch('/api/auth/favorites');
+      if (favRes.ok) {
+        const favData = await favRes.json();
+        if (favData.photos?.some(f => f.id === p.id)) {
+          document.getElementById('dFavIcon').textContent = '♥';
+          document.getElementById('dFavIcon').style.color = '#ff4070';
+          document.getElementById('dFavText').textContent = '已收藏';
+        }
+      }
+    } catch {}
+
+    // Load related (same album)
+    if (p.album_slug) {
+      try {
+        const relRes = await fetch(`/api/photos?album=${p.album_slug}&per_page=8`);
+        const relData = await relRes.json();
+        const related = (relData.photos || []).filter(r => r.id !== p.id);
+        document.getElementById('relatedGrid').innerHTML = related.map(r => `
+          <a href="/wallpaper.html?id=${r.id}" class="related-card">
+            <img src="${getSrc(r)}" alt="${escapeHtml(r.title || r.original_name)}" loading="lazy" />
+            <div class="rc-body"><div class="t">${escapeHtml(r.title || r.original_name)}</div><div class="m">⬇ ${r.download_count || 0}</div></div>
+          </a>
+        `).join('') || '<p style="color:var(--text-muted)">暂无相关壁纸</p>';
+      } catch { document.getElementById('relatedGrid').innerHTML = ''; }
+    }
+  } catch { document.body.innerHTML = '<div class="empty-state" style="padding:100px"><h3>加载失败</h3></div>'; }
+}
+
+load();
+</script>
+</body>
+</html>

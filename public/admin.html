@@ -5,88 +5,177 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理后台 · 光影集</title>
 <link rel="stylesheet" href="css/style.css" />
+<script src="js/shared.js"></script>
 <style>
   .admin-layout { display: flex; min-height: 100vh; }
   .admin-sidebar {
-    width: 220px; flex-shrink: 0; background: var(--bg-elevated);
-    border-right: 1px solid var(--border); padding: 20px 0;
+    width: 210px; flex-shrink: 0; background: var(--bg-elevated);
+    border-right: 1px solid var(--border); padding: 16px 0;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
   }
-  .admin-sidebar h3 { padding: 0 20px 16px; font-size: .8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; }
+  .admin-sidebar h3 { padding: 0 16px 10px; font-size: .72rem; color: var(--text-muted); letter-spacing: .08em; text-transform: uppercase; }
   .admin-nav a {
-    display: flex; align-items: center; gap: 8px; padding: 10px 20px;
-    font-size: .85rem; color: var(--text-secondary); transition: all .15s;
+    display: flex; align-items: center; gap: 8px; padding: 9px 16px;
+    font-size: .82rem; color: var(--text-secondary); transition: all .15s;
     border-left: 2px solid transparent;
   }
   .admin-nav a:hover, .admin-nav a.active { color: var(--text); background: rgba(255,255,255,.03); border-left-color: var(--accent); }
-  .admin-main { flex: 1; padding: 28px 32px; overflow-y: auto; max-height: 100vh; }
-  .admin-main h2 { font-size: 1.3rem; margin-bottom: 20px; }
-  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 28px; }
-  .stat-card {
-    padding: 18px; border-radius: var(--radius); background: var(--bg-elevated);
-    border: 1px solid var(--border);
-  }
-  .stat-card .num { font-size: 1.8rem; font-weight: 800; color: var(--accent); }
-  .stat-card .lbl { font-size: .78rem; color: var(--text-muted); margin-top: 2px; }
-  .data-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
-  .data-table th { text-align: left; padding: 10px 12px; color: var(--text-muted); font-weight: 600; font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border); }
-  .data-table td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,.02); }
-  .badge { display: inline-block; padding: 3px 8px; border-radius: 10px; font-size: .7rem; font-weight: 600; }
-  .badge-approved { background: rgba(34,197,94,.15); color: #4ade80; }
-  .badge-pending { background: rgba(234,179,8,.15); color: #facc15; }
-  .badge-rejected { background: rgba(239,68,68,.15); color: #f87171; }
-  .badge-admin { background: rgba(168,85,247,.15); color: #a78bfa; }
-  .badge-user { background: rgba(100,116,139,.15); color: #94a3b8; }
-  .btn-sm { padding: 5px 12px; font-size: .74rem; border-radius: var(--radius-sm); }
+  .admin-main { flex: 1; padding: 24px 28px; overflow-y: auto; max-height: 100vh; }
+  .admin-main h2 { font-size: 1.2rem; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
   .section { display: none; }
-  .section.active { display: block; }
-  .empty-admin { text-align: center; padding: 60px 20px; color: var(--text-muted); }
-  .alert { padding: 10px 14px; border-radius: var(--radius-sm); font-size: .82rem; margin-bottom: 12px; }
-  .alert-err { background: rgba(239,68,68,.1); color: #f87171; border: 1px solid rgba(239,68,68,.2); }
+  .section.active { display: block; animation: fadeUp .3s var(--ease-smooth); }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } }
+
+  /* Stats */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 24px; }
+  .stat-card {
+    padding: 16px; border-radius: var(--radius); background: var(--bg-elevated);
+    border: 1px solid var(--border); transition: var(--transition);
+  }
+  .stat-card:hover { border-color: var(--accent); }
+  .stat-card .num { font-size: 1.7rem; font-weight: 800; color: var(--accent); }
+  .stat-card .lbl { font-size: .74rem; color: var(--text-muted); margin-top: 2px; }
+  .stat-card.warn .num { color: #facc15; }
+  .stat-card.danger .num { color: #f87171; }
+
+  /* Table */
+  .data-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  .data-table th { text-align: left; padding: 9px 10px; color: var(--text-muted); font-weight: 600; font-size: .72rem; letter-spacing: .04em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .data-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.02); vertical-align: middle; }
+  .data-table tr:hover td { background: rgba(255,255,255,.01); }
+
+  /* Badges */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: .7rem; font-weight: 600; }
+  .badge-green { background: rgba(34,197,94,.15); color: #4ade80; }
+  .badge-yellow { background: rgba(234,179,8,.15); color: #facc15; }
+  .badge-red { background: rgba(239,68,68,.15); color: #f87171; }
+  .badge-purple { background: rgba(168,85,247,.15); color: #a78bfa; }
+
+  /* Toolbar */
+  .admin-toolbar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+  .admin-toolbar input { padding: 7px 12px; border-radius: var(--radius-sm); background: var(--bg); border: 1px solid var(--border); color: var(--text); font-size: .8rem; outline: none; }
+  .admin-toolbar input:focus { border-color: var(--accent); }
+
+  /* Banner grid */
+  .banner-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+  .banner-card {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden; transition: var(--transition);
+  }
+  .banner-card:hover { border-color: var(--accent); }
+  .banner-card img { width: 100%; height: 120px; object-fit: cover; display: block; }
+  .banner-card .bc-body { padding: 10px 12px; }
+  .banner-card .bc-body .t { font-size: .82rem; font-weight: 600; }
+  .banner-card .bc-body .m { font-size: .7rem; color: var(--text-muted); margin-top: 2px; }
+
+  /* Charts placeholder */
+  .chart-row { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .chart-box {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px; min-height: 200px;
+  }
+  .chart-box h3 { font-size: .85rem; color: var(--text-muted); margin-bottom: 12px; }
+  .bar-chart { display: flex; align-items: flex-end; gap: 12px; height: 140px; }
+  .bar-item { flex: 1; text-align: center; }
+  .bar { width: 100%; border-radius: 4px 4px 0 0; min-height: 2px; transition: height .5s var(--ease-smooth); }
+  .bar-label { font-size: .65rem; color: var(--text-muted); margin-top: 4px; }
+  .bar-value { font-size: .72rem; font-weight: 700; color: var(--text); }
+
+  .log-entry { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .78rem; display: flex; gap: 10px; }
+  .log-entry .log-time { color: var(--text-muted); font-size: .7rem; white-space: nowrap; }
+  .log-entry .log-action { font-weight: 600; min-width: 80px; }
+  .log-entry .log-detail { color: var(--text-secondary); }
+
+  .empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
+  .alert { padding: 10px 14px; border-radius: var(--radius-sm); font-size: .8rem; margin-bottom: 10px; animation: fadeUp .3s var(--ease-smooth); }
   .alert-ok { background: rgba(34,197,94,.1); color: #4ade80; border: 1px solid rgba(34,197,94,.2); }
+  .alert-err { background: rgba(239,68,68,.1); color: #f87171; border: 1px solid rgba(239,68,68,.2); }
+
+  @media (max-width: 700px) {
+    .admin-sidebar { width: 160px; }
+    .admin-main { padding: 16px; }
+    .chart-row { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: repeat(3, 1fr); }
+  }
 </style>
 </head>
 <body>
 <div class="admin-layout">
   <aside class="admin-sidebar">
-    <a href="/" class="logo" style="padding:0 20px 20px;">
-      <svg width="22" height="22" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="8" fill="url(#lg)"/><path d="M6 20V8l7 8 3-4 3 4 3-6v10H6z" fill="white" opacity="0.9"/><defs><linearGradient id="lg" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#a855f7"/><stop offset="1" stop-color="#6366f1"/></linearGradient></defs></svg>
+    <a href="/" class="logo" style="padding:0 16px 16px;">
+      <svg width="20" height="20" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="8" fill="url(#lga)"/><path d="M6 20V8l7 8 3-4 3 4 3-6v10H6z" fill="white" opacity="0.9"/><defs><linearGradient id="lga" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#a855f7"/><stop offset="1" stop-color="#6366f1"/></linearGradient></defs></svg>
       <span>光影集</span>
     </a>
     <h3>管理后台</h3>
     <nav class="admin-nav">
       <a href="#" class="active" data-section="dashboard">📊 仪表盘</a>
-      <a href="#" data-section="photos">🖼️ 图片审核</a>
+      <a href="#" data-section="photos">🖼️ 内容管理</a>
+      <a href="#" data-section="banners">🎯 Banner</a>
       <a href="#" data-section="albums">📁 分类管理</a>
       <a href="#" data-section="users">👥 用户管理</a>
-      <a href="/">← 返回前台</a>
+      <a href="#" data-section="logs">📋 操作日志</a>
+      <a href="/" style="margin-top:10px;opacity:.5">← 返回前台</a>
     </nav>
   </aside>
+
   <main class="admin-main">
     <div id="alertBox"></div>
 
     <!-- Dashboard -->
     <section class="section active" id="sec-dashboard">
-      <h2>仪表盘</h2>
+      <h2>📊 仪表盘</h2>
       <div class="stats-grid" id="statsGrid"></div>
+      <div class="chart-row">
+        <div class="chart-box">
+          <h3>📈 今日数据</h3>
+          <div class="bar-chart" id="barChart"></div>
+        </div>
+        <div class="chart-box">
+          <h3>🕐 最近操作</h3>
+          <div id="recentLogs"></div>
+        </div>
+      </div>
     </section>
 
-    <!-- Photos Review -->
+    <!-- Photos -->
     <section class="section" id="sec-photos">
-      <h2>图片审核</h2>
-      <div style="display:flex;gap:6px;margin-bottom:16px">
+      <h2>🖼️ 内容管理</h2>
+      <div class="admin-toolbar">
         <button class="sort-chip active" data-status="all">全部</button>
         <button class="sort-chip" data-status="pending">⏳ 待审核</button>
         <button class="sort-chip" data-status="approved">✅ 已通过</button>
         <button class="sort-chip" data-status="rejected">❌ 已拒绝</button>
+        <input type="text" id="photoSearch" placeholder="搜索标题..." style="margin-left:auto" />
       </div>
       <div id="photosTable"></div>
     </section>
 
+    <!-- Banners -->
+    <section class="section" id="sec-banners">
+      <h2>🎯 Banner 管理</h2>
+      <div class="admin-toolbar">
+        <button class="btn-primary btn-sm" id="addBannerBtn">＋ 添加 Banner</button>
+      </div>
+      <div class="banner-grid" id="bannerGrid"></div>
+      <!-- Add/Edit form -->
+      <div id="bannerForm" style="display:none;margin-top:16px;padding:16px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);display:flex;flex-direction:column;gap:10px;max-width:500px">
+        <input type="text" id="bannerTitle" class="input-glass" placeholder="Banner 标题" />
+        <input type="text" id="bannerImage" class="input-glass" placeholder="图片 URL（必填）" />
+        <input type="text" id="bannerLink" class="input-glass" placeholder="链接地址（可选）" />
+        <div style="display:flex;gap:8px">
+          <button class="btn-primary btn-sm" id="bannerSave">保存</button>
+          <button class="btn-glass btn-sm" id="bannerCancel">取消</button>
+        </div>
+        <input type="hidden" id="bannerEditId" />
+      </div>
+    </section>
+
     <!-- Albums -->
     <section class="section" id="sec-albums">
-      <h2>分类管理</h2>
-      <div style="display:flex;gap:8px;margin-bottom:16px">
-        <input type="text" id="newAlbumName" placeholder="分类名称" class="input-glass" style="width:200px" />
+      <h2>📁 分类管理</h2>
+      <div class="admin-toolbar">
+        <input type="text" id="newAlbumName" placeholder="分类名称" />
+        <input type="text" id="newAlbumDesc" placeholder="分类描述（可选）" style="width:240px" />
         <button class="btn-primary btn-sm" id="addAlbumBtn">＋ 添加</button>
       </div>
       <div id="albumsTable"></div>
@@ -94,161 +183,290 @@
 
     <!-- Users -->
     <section class="section" id="sec-users">
-      <h2>用户管理</h2>
+      <h2>👥 用户管理</h2>
+      <div class="admin-toolbar">
+        <input type="text" id="userSearch" placeholder="搜索用户名或邮箱..." />
+      </div>
       <div id="usersTable"></div>
+    </section>
+
+    <!-- Logs -->
+    <section class="section" id="sec-logs">
+      <h2>📋 操作日志</h2>
+      <div id="logsTable"></div>
     </section>
   </main>
 </div>
 
 <script>
-const TOKEN = localStorage.getItem('wp_token');
-if (!TOKEN) window.location.href = '/login.html';
+let adminUser = null;
+const headers = { 'Content-Type': 'application/json' };
 
-const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN };
+async function checkAdmin() {
+  try {
+    const res = await fetch('/api/auth/me', { headers });
+    if (!res.ok) { window.location.href = '/login.html'; return false; }
+    adminUser = await res.json();
+    if (adminUser.role !== 'admin') { alert('需要管理员权限'); window.location.href = '/'; return false; }
+    return true;
+  } catch { window.location.href = '/login.html'; return false; }
+}
 const $ = (s) => document.getElementById(s);
 const alertBox = $('alertBox');
-let currentPhotoStatus = 'all';
+let photoStatusFilter = 'all', photoSearchTimer;
 
-function alert(msg, ok) {
-  alertBox.innerHTML = `<div class="alert ${ok ? 'alert-ok' : 'alert-err'}">${msg}</div>`;
-  setTimeout(() => alertBox.innerHTML = '', 3000);
-}
+function alert(msg, ok) { alertBox.innerHTML = `<div class="alert ${ok ? 'alert-ok' : 'alert-err'}">${msg}</div>`; setTimeout(() => alertBox.innerHTML = '', 3000); }
 
 async function api(url, opts = {}) {
   const res = await fetch(url, { headers, ...opts });
-  if (res.status === 401) { localStorage.clear(); window.location.href = '/login.html'; return; }
-  if (res.status === 403) { alert('无管理员权限', false); return; }
+  if (res.status === 401) { window.location.href = '/login.html'; return; }
+  if (res.status === 403) { alert('无管理员权限', false); return null; }
   const data = await res.json();
-  if (!res.ok) { alert(data.error, false); throw new Error(data.error); }
+  if (!res.ok) { alert(data.error || '操作失败', false); throw new Error(data.error); }
   return data;
 }
 
-// Navigation
+// ── Navigation ──────────────────────
 document.querySelectorAll('.admin-nav a[data-section]').forEach(a => {
   a.addEventListener('click', (e) => {
     e.preventDefault();
     document.querySelectorAll('.admin-nav a').forEach(x => x.classList.remove('active'));
     a.classList.add('active');
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-    document.getElementById('sec-' + a.dataset.section).classList.add('active');
-    if (a.dataset.section === 'dashboard') loadDashboard();
-    if (a.dataset.section === 'photos') loadPhotos();
-    if (a.dataset.section === 'albums') loadAlbums();
-    if (a.dataset.section === 'users') loadUsers();
+    $('sec-' + a.dataset.section).classList.add('active');
+    const loaders = { dashboard: loadDashboard, photos: loadPhotos, banners: loadBanners, albums: loadAlbums, users: loadUsers, logs: loadLogs };
+    if (loaders[a.dataset.section]) loaders[a.dataset.section]();
   });
 });
 
-// Dashboard
+// ═══════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════
 async function loadDashboard() {
   const stats = await api('/api/admin/stats');
   if (!stats) return;
   $('statsGrid').innerHTML = [
-    { n: stats.photos, l: '壁纸总数' },
-    { n: stats.videos, l: '动态壁纸' },
-    { n: stats.pending, l: '待审核' },
-    { n: stats.users, l: '用户数' },
-    { n: stats.downloads, l: '总下载' },
-    { n: stats.albums, l: '分类数' },
-  ].map(s => `<div class="stat-card"><div class="num">${s.n}</div><div class="lbl">${s.l}</div></div>`).join('');
+    { n: stats.photos, l: '壁纸总数', cls: '' },
+    { n: stats.videos, l: '动态壁纸', cls: '' },
+    { n: stats.pending, l: '待审核', cls: 'warn' },
+    { n: stats.featured, l: '推荐位', cls: '' },
+    { n: stats.users, l: '用户数', cls: '' },
+    { n: stats.banned, l: '已封禁', cls: 'danger' },
+    { n: stats.downloads, l: '总下载', cls: '' },
+    { n: stats.albums, l: '分类数', cls: '' },
+  ].map(s => `<div class="stat-card ${s.cls}"><div class="num">${s.n}</div><div class="lbl">${s.l}</div></div>`).join('');
+
+  // Bar chart — today's data
+  $('barChart').innerHTML = [
+    { v: stats.today_uploads, l: '上传', color: '#a855f7' },
+    { v: stats.today_downloads, l: '下载', color: '#6366f1' },
+    { v: stats.today_registrations, l: '注册', color: '#4ade80' },
+  ].map(b => {
+    const max = Math.max(stats.today_uploads, stats.today_downloads, stats.today_registrations, 1);
+    const h = Math.max((b.v / max) * 120, 2);
+    return `<div class="bar-item"><div class="bar-value">${b.v}</div><div class="bar" style="height:${h}px;background:${b.color}"></div><div class="bar-label">${b.l}</div></div>`;
+  }).join('');
+
+  // Recent logs
+  try {
+    const logData = await api('/api/admin/logs?per_page=6');
+    $('recentLogs').innerHTML = (logData?.logs || []).map(l =>
+      `<div class="log-entry"><span class="log-action">${actionLabel(l.action)}</span><span class="log-detail">${l.detail || ''}</span><span class="log-time">${(l.created_at||'').slice(5,16)}</span></div>`
+    ).join('') || '<div class="empty-state">暂无操作记录</div>';
+  } catch {}
 }
 
-// Photos
-async function loadPhotos() {
-  const data = await api(`/api/admin/photos?status=${currentPhotoStatus === 'all' ? '' : currentPhotoStatus}&per_page=50`);
-  if (!data) return;
-  $('photosTable').innerHTML = data.photos.length === 0
-    ? '<div class="empty-admin">暂无数据</div>'
-    : `<table class="data-table"><thead><tr><th>ID</th><th>预览</th><th>标题</th><th>类型</th><th>状态</th><th>上传者</th><th>操作</th></tr></thead><tbody>
-      ${data.photos.map(p => `
-        <tr>
-          <td>${p.id}</td>
-          <td><img src="/uploads/${p.filename}" style="width:60px;height:40px;object-fit:cover;border-radius:4px" /></td>
-          <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.title || p.original_name}</td>
-          <td>${p.media_type === 'video' ? '🎬 视频' : '🖼️ 图片'}</td>
-          <td><span class="badge badge-${p.status}">${p.status === 'approved' ? '已通过' : p.status === 'pending' ? '待审核' : '已拒绝'}</span></td>
-          <td>${p.uploader_name || '—'}</td>
-          <td>
-            ${p.status !== 'approved' ? `<button class="btn-primary btn-sm" onclick="review(${p.id},'approved')" style="margin-right:4px">通过</button>` : ''}
-            ${p.status !== 'rejected' ? `<button class="btn-glass btn-sm" onclick="review(${p.id},'rejected')" style="margin-right:4px">拒绝</button>` : ''}
-            <button class="btn-glass btn-sm" onclick="delPhoto(${p.id})" style="color:#f87171">删除</button>
-          </td>
-        </tr>
-      `).join('')}
-      </tbody></table>`;
+function actionLabel(a) {
+  const map = { approve_photo: '✅ 通过', reject_photo: '❌ 拒绝', feature_photo: '⭐ 推荐', unfeature_photo: '取消推荐',
+    delete_photo: '🗑️ 删除', batch_review: '📦 批量审核', create_album: '📁 创建分类', delete_album: '🗑️ 删除分类',
+    ban_user: '🚫 封禁', unban_user: '✅ 解封', change_role: '👑 改角色', delete_user: '🗑️ 删用户',
+    create_banner: '🎯 建Banner', update_banner: '✏️ 改Banner', delete_banner: '🗑️ 删Banner',
+    update_tags: '🏷️ 改标签', update_album: '✏️ 改分类' };
+  return map[a] || a;
+}
 
-  // Status filter chips
+// ═══════════════════════════════════════
+// PHOTOS
+// ═══════════════════════════════════════
+async function loadPhotos() {
+  const search = $('photoSearch').value.trim();
+  const statusQ = photoStatusFilter === 'all' ? '' : `&status=${photoStatusFilter}`;
+  const searchQ = search ? `&search=${encodeURIComponent(search)}` : '';
+  const data = await api(`/api/admin/photos?per_page=30${statusQ}${searchQ}`);
+  if (!data) return;
+  $('photosTable').innerHTML = !data.photos.length ? '<div class="empty-state">暂无内容</div>'
+    : `<table class="data-table"><thead><tr>
+      <th><input type="checkbox" id="selectAll" /></th><th>预览</th><th>标题</th><th>类型</th><th>状态</th><th>推荐</th><th>上传者</th><th>操作</th>
+    </tr></thead><tbody>${data.photos.map(p => `
+      <tr data-photo-id="${p.id}">
+        <td><input type="checkbox" class="photo-check" value="${p.id}" /></td>
+        <td><img src="${getSrc(p)}" style="width:60px;height:40px;object-fit:cover;border-radius:4px" /></td>
+        <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.title || p.original_name)}</td>
+        <td>${p.media_type === 'video' ? '🎬' : '🖼️'}</td>
+        <td><span class="badge badge-${p.status==='approved'?'green':p.status==='pending'?'yellow':'red'}">${p.status==='approved'?'通过':p.status==='pending'?'待审':'拒绝'}</span></td>
+        <td>${p.featured ? '⭐' : '<span style="color:var(--text-muted)">—</span>'}</td>
+        <td>${p.uploader_name || '—'}</td>
+        <td style="white-space:nowrap">
+          ${p.status !== 'approved' ? `<button class="btn-primary btn-sm" onclick="reviewPhoto(${p.id},'approved')">通过</button> ` : ''}
+          ${p.status !== 'rejected' ? `<button class="btn-glass btn-sm" onclick="reviewPhoto(${p.id},'rejected')">拒绝</button> ` : ''}
+          <button class="btn-glass btn-sm" onclick="toggleFeature(${p.id},${p.featured||0})">${p.featured?'取消推荐':'⭐推荐'}</button>
+          <button class="btn-glass btn-sm" onclick="editTags(${p.id},'${(p.tags||'').replace(/'/g,"\\'")}')">🏷️</button>
+          <button class="btn-glass btn-sm" onclick="delPhoto(${p.id})" style="color:#f87171">删除</button>
+        </td>
+      </tr>`).join('')}</tbody></table>
+      <div class="admin-toolbar" style="margin-top:12px">
+        <button class="btn-primary btn-sm" onclick="batchReview('approved')">批量通过</button>
+        <button class="btn-glass btn-sm" onclick="batchReview('rejected')">批量拒绝</button>
+        <span style="font-size:.78rem;color:var(--text-muted)" id="selectedCount"></span>
+      </div>`;
+
   document.querySelectorAll('#sec-photos [data-status]').forEach(chip => {
     chip.onclick = () => {
       document.querySelectorAll('#sec-photos [data-status]').forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-      currentPhotoStatus = chip.dataset.status;
-      loadPhotos();
+      chip.classList.add('active'); photoStatusFilter = chip.dataset.status; loadPhotos();
     };
+  });
+
+  // Select all
+  $('selectAll').addEventListener('change', (e) => {
+    document.querySelectorAll('.photo-check').forEach(cb => cb.checked = e.target.checked);
   });
 }
 
-window.review = async (id, status) => { await api(`/api/admin/photos/${id}/review`, { method: 'PATCH', body: JSON.stringify({ status }) }); loadPhotos(); loadDashboard(); };
-window.delPhoto = async (id) => { if (!confirm('确定删除？')) return; await api(`/api/admin/photos/${id}`, { method: 'DELETE' }); loadPhotos(); loadDashboard(); };
+$('photoSearch').addEventListener('input', function() { clearTimeout(photoSearchTimer); photoSearchTimer = setTimeout(loadPhotos, 400); });
 
-// Albums
+window.reviewPhoto = async (id, status) => { await api(`/api/admin/photos/${id}/review`, { method: 'PATCH', body: JSON.stringify({ status }) }); loadPhotos(); loadDashboard(); };
+window.toggleFeature = async (id, current) => { await api(`/api/admin/photos/${id}/feature`, { method: 'PATCH', body: JSON.stringify({ featured: current ? 0 : 1 }) }); loadPhotos(); };
+window.delPhoto = async (id) => { if (!confirm('确定删除？')) return; await api(`/api/admin/photos/${id}`, { method: 'DELETE' }); loadPhotos(); loadDashboard(); };
+window.editTags = async (id, currentTags) => {
+  const tags = prompt('输入标签（逗号分隔）', currentTags);
+  if (tags === null) return;
+  await api(`/api/admin/photos/${id}/tags`, { method: 'PATCH', body: JSON.stringify({ tags }) });
+  loadPhotos();
+};
+
+async function batchReview(status) {
+  const ids = [...document.querySelectorAll('.photo-check:checked')].map(cb => parseInt(cb.value));
+  if (!ids.length) return alert('请勾选图片', false);
+  if (!confirm(`确定将 ${ids.length} 张图片${status === 'approved' ? '通过' : '拒绝'}？`)) return;
+  await api('/api/admin/photos/batch-review', { method: 'POST', body: JSON.stringify({ ids, status }) });
+  loadPhotos(); loadDashboard();
+}
+
+// ═══════════════════════════════════════
+// BANNERS
+// ═══════════════════════════════════════
+async function loadBanners() {
+  const banners = await api('/api/admin/banners');
+  if (!banners) return;
+  $('bannerGrid').innerHTML = !banners.length ? '<div class="empty-state">暂无 Banner</div>'
+    : banners.map(b => `
+      <div class="banner-card">
+        <img src="${b.image_url}" alt="${b.title}" />
+        <div class="bc-body">
+          <div class="t">${b.title || '无标题'}</div>
+          <div class="m">${b.is_active ? '✅ 启用' : '⏸ 停用'} · 排序: ${b.sort_order}</div>
+          <div style="margin-top:8px;display:flex;gap:4px">
+            <button class="btn-glass btn-sm" onclick="editBanner(${b.id},'${b.title||''}','${b.image_url}','${b.link_url||''}',${b.sort_order},${b.is_active})">编辑</button>
+            <button class="btn-glass btn-sm" onclick="delBanner(${b.id})" style="color:#f87171">删除</button>
+          </div>
+        </div>
+      </div>`).join('');
+}
+
+$('addBannerBtn').addEventListener('click', () => { $('bannerForm').style.display = ''; $('bannerEditId').value = ''; $('bannerTitle').value = ''; $('bannerImage').value = ''; $('bannerLink').value = ''; });
+$('bannerCancel').addEventListener('click', () => { $('bannerForm').style.display = 'none'; });
+$('bannerSave').addEventListener('click', async () => {
+  const image_url = $('bannerImage').value.trim();
+  if (!image_url) return alert('图片 URL 必填', false);
+  const body = { title: $('bannerTitle').value.trim(), image_url, link_url: $('bannerLink').value.trim(), sort_order: 0, is_active: 1 };
+  const editId = $('bannerEditId').value;
+  if (editId) { await api(`/api/admin/banners/${editId}`, { method: 'PATCH', body: JSON.stringify(body) }); }
+  else { await api('/api/admin/banners', { method: 'POST', body: JSON.stringify(body) }); }
+  $('bannerForm').style.display = 'none'; loadBanners();
+});
+
+window.editBanner = (id, title, image_url, link_url, sort_order, is_active) => {
+  $('bannerEditId').value = id; $('bannerTitle').value = title; $('bannerImage').value = image_url;
+  $('bannerLink').value = link_url; $('bannerForm').style.display = '';
+};
+window.delBanner = async (id) => { if (!confirm('确定删除？')) return; await api(`/api/admin/banners/${id}`, { method: 'DELETE' }); loadBanners(); };
+
+// ═══════════════════════════════════════
+// ALBUMS
+// ═══════════════════════════════════════
 async function loadAlbums() {
-  const data = await api('/api/albums');
-  if (!data) return;
-  $('albumsTable').innerHTML = `<table class="data-table"><thead><tr><th>名称</th><th>标识</th><th>图片数</th><th>操作</th></tr></thead><tbody>
-    ${data.map(a => `<tr><td>${a.name}</td><td>${a.slug}</td><td>${a.photo_count}</td><td><button class="btn-glass btn-sm" onclick="delAlbum(${a.id})" style="color:#f87171">删除</button></td></tr>`).join('')}
-  </tbody></table>`;
+  const albums = await api('/api/admin/albums');
+  if (!albums) return;
+  $('albumsTable').innerHTML = !albums.length ? '<div class="empty-state">暂无分类</div>'
+    : `<table class="data-table"><thead><tr><th>名称</th><th>标识</th><th>描述</th><th>图片数</th><th>操作</th></tr></thead><tbody>
+      ${albums.map(a => `<tr>
+        <td>${a.name}</td><td>${a.slug}</td><td style="color:var(--text-muted)">${a.description||'—'}</td><td>${a.photo_count}</td>
+        <td><button class="btn-glass btn-sm" onclick="delAlbum(${a.id})" style="color:#f87171">删除</button></td>
+      </tr>`).join('')}</tbody></table>`;
 }
 
 $('addAlbumBtn').addEventListener('click', async () => {
   const name = $('newAlbumName').value.trim();
   if (!name) return alert('请输入分类名', false);
-  await api('/api/admin/albums', { method: 'POST', body: JSON.stringify({ name }) });
-  $('newAlbumName').value = '';
-  loadAlbums();
-  loadDashboard();
+  await api('/api/admin/albums', { method: 'POST', body: JSON.stringify({ name, description: $('newAlbumDesc').value.trim() }) });
+  $('newAlbumName').value = ''; $('newAlbumDesc').value = ''; loadAlbums(); loadDashboard();
 });
+window.delAlbum = async (id) => { if (!confirm('删除后图片变为未分类。确定？')) return; await api(`/api/admin/albums/${id}`, { method: 'DELETE' }); loadAlbums(); loadDashboard(); };
 
-window.delAlbum = async (id) => {
-  if (!confirm('删除分类后，该分类下的图片将变为未分类。确定？')) return;
-  await api(`/api/admin/albums/${id}`, { method: 'DELETE' });
-  loadAlbums();
-  loadDashboard();
-};
+// ═══════════════════════════════════════
+// USERS
+// ═══════════════════════════════════════
+$('userSearch').addEventListener('input', async function() { await loadUsers(); });
 
-// Users
 async function loadUsers() {
-  const data = await api('/api/admin/users?per_page=100');
+  const search = $('userSearch').value.trim();
+  const q = search ? `&search=${encodeURIComponent(search)}` : '';
+  const data = await api(`/api/admin/users?per_page=100${q}`);
   if (!data) return;
-  $('usersTable').innerHTML = `<table class="data-table"><thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>角色</th><th>上传数</th><th>注册时间</th><th>操作</th></tr></thead><tbody>
-    ${data.users.map(u => `
-      <tr>
+  $('usersTable').innerHTML = !data.users.length ? '<div class="empty-state">暂无用户</div>'
+    : `<table class="data-table"><thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>角色</th><th>状态</th><th>上传</th><th>注册时间</th><th>操作</th></tr></thead><tbody>
+      ${data.users.map(u => `<tr>
         <td>${u.id}</td><td>${u.username}</td><td>${u.email}</td>
-        <td><span class="badge badge-${u.role}">${u.role === 'admin' ? '管理员' : '用户'}</span></td>
-        <td>${u.photo_count}</td><td>${u.created_at ? u.created_at.slice(0,10) : '—'}</td>
-        <td>
-          <button class="btn-glass btn-sm" onclick="toggleRole(${u.id},'${u.role}')">${u.role === 'admin' ? '降为普通' : '升为管理员'}</button>
-          ${u.role !== 'admin' ? `<button class="btn-glass btn-sm" onclick="delUser(${u.id})" style="color:#f87171;margin-left:4px">删除</button>` : ''}
+        <td><span class="badge ${u.role==='admin'?'badge-purple':''}">${u.role==='admin'?'管理员':'用户'}</span></td>
+        <td>${u.banned ? '<span class="badge badge-red">已封禁</span>' : '<span class="badge badge-green">正常</span>'}</td>
+        <td>${u.photo_count}</td>
+        <td>${(u.created_at||'').slice(0,10)}</td>
+        <td style="white-space:nowrap">
+          <button class="btn-glass btn-sm" onclick="toggleRole(${u.id},'${u.role}')">${u.role==='admin'?'降级':'升管理员'}</button>
+          <button class="btn-glass btn-sm" onclick="toggleBan(${u.id},${u.banned||0})">${u.banned?'解封':'封禁'}</button>
+          ${u.role!=='admin' ? `<button class="btn-glass btn-sm" onclick="delUser(${u.id})" style="color:#f87171">删除</button>` : ''}
         </td>
-      </tr>
-    `).join('')}
-  </tbody></table>`;
+      </tr>`).join('')}</tbody></table>`;
 }
 
 window.toggleRole = async (id, current) => {
-  const next = current === 'admin' ? 'user' : 'admin';
-  await api(`/api/admin/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role: next }) });
+  await api(`/api/admin/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role: current === 'admin' ? 'user' : 'admin' }) });
   loadUsers();
 };
+window.toggleBan = async (id, current) => {
+  const reason = current ? '' : (prompt('封禁原因（可选）') || '');
+  await api(`/api/admin/users/${id}/ban`, { method: 'PATCH', body: JSON.stringify({ banned: current ? 0 : 1, reason }) });
+  loadUsers(); loadDashboard();
+};
+window.delUser = async (id) => { if (!confirm('确定删除该用户及其上传内容？')) return; await api(`/api/admin/users/${id}`, { method: 'DELETE' }); loadUsers(); loadDashboard(); };
 
-window.delUser = async (id) => {
-  if (!confirm('确定删除该用户？')) return;
-  await api(`/api/admin/users/${id}`, { method: 'DELETE' });
-  loadUsers();
-  loadDashboard();
-};
+// ═══════════════════════════════════════
+// LOGS
+// ═══════════════════════════════════════
+async function loadLogs() {
+  const data = await api('/api/admin/logs?per_page=80');
+  if (!data) return;
+  $('logsTable').innerHTML = !data.logs.length ? '<div class="empty-state">暂无操作记录</div>'
+    : data.logs.map(l => `<div class="log-entry">
+      <span class="log-time">${(l.created_at||'').slice(5,16)}</span>
+      <span class="log-action">${actionLabel(l.action)}</span>
+      <span class="log-detail">${l.detail || ''} ${l.admin_name ? 'by ' + l.admin_name : ''}</span>
+    </div>`).join('');
+}
 
 // Init
-loadDashboard();
+checkAdmin().then(ok => { if (ok) loadDashboard(); });
 </script>
 </body>
 </html>

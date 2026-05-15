@@ -2,7 +2,8 @@ const { getDB } = require('../db');
 const path = require('path');
 const fs = require('fs');
 const sizeOf = require('image-size');
-const { optionalAuth } = require('../middleware/auth');
+const { optionalAuth, authMiddleware, ownerMiddleware } = require('../middleware/auth');
+const { validateFile, uploadToCloudinary, deleteFromCloudinary } = require('../services/upload');
 
 const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 const THUMBS_DIR = path.join(__dirname, '..', 'uploads', 'thumbs');
@@ -15,7 +16,9 @@ function ensureDirs() {
 function isVideo(mimetype) { return mimetype && mimetype.startsWith('video/'); }
 
 function register(router, upload) {
+  // ═══════════════════════════════════════
   // GET /api/photos — list with filters + pagination
+  // ═══════════════════════════════════════
   router.get('/api/photos', optionalAuth, (req, res) => {
     const db = getDB();
     const { album, search, sort, time, type, page = 1, per_page = 24 } = req.query;
@@ -48,7 +51,7 @@ function register(router, upload) {
       ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?
     `).all(...params, limit, offset);
 
-    // If user is logged in, mark favorites
+    // Mark favorites for logged-in user
     if (req.user) {
       const favIds = new Set(
         db.prepare(`SELECT photo_id FROM favorites WHERE user_id = ? AND photo_id IN (${rows.map(() => '?').join(',') || '0'})`)
@@ -60,12 +63,14 @@ function register(router, upload) {
     res.json({ photos: rows, total, page: Math.max(parseInt(page), 1), per_page: limit, total_pages: Math.ceil(total / limit) });
   });
 
+  // ═══════════════════════════════════════
   // GET /api/photos/:id
+  // ═══════════════════════════════════════
   router.get('/api/photos/:id', optionalAuth, (req, res) => {
     const db = getDB();
     const row = db.prepare(`
-      SELECT p.*, a.name AS album_name, a.slug AS album_slug
-      FROM photos p LEFT JOIN albums a ON a.id = p.album_id WHERE p.id = ?
+      SELECT p.*, a.name AS album_name, a.slug AS album_slug, u.username AS uploader_name
+      FROM photos p LEFT JOIN albums a ON a.id = p.album_id LEFT JOIN users u ON u.id = p.uploader_id WHERE p.id = ?
     `).get(req.params.id);
     if (!row) return res.status(404).json({ error: '资源不存在' });
     if (req.user) {
@@ -74,54 +79,111 @@ function register(router, upload) {
     res.json(row);
   });
 
+  // ═══════════════════════════════════════
   // POST /api/photos/upload
-  router.post('/api/photos/upload', (req, res, next) => {
+  // ★ 必须登录 · Cloudinary优先 → 本地兜底
+  // ═══════════════════════════════════════
+  router.post('/api/photos/upload', authMiddleware, (req, res, next) => {
     ensureDirs();
-    upload.single('photo')(req, res, (err) => {
+    upload.single('photo')(req, res, async (err) => {
       if (err) {
-        if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: '文件过大小超过100MB限制' });
-        return res.status(400).json({ error: err.message });
+        if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: '文件过大，图片最大 20MB，视频最大 100MB' });
+        if (err.code === 'LIMIT_UNEXPECTED_FILE') return res.status(400).json({ error: '字段名必须为 "photo"' });
+        return res.status(400).json({ error: err.message || '上传失败' });
       }
-      if (!req.file) return res.status(400).json({ error: '请选择文件' });
+      if (!req.file) return res.status(400).json({ error: '请选择要上传的文件' });
 
       try {
-        const video = isVideo(req.file.mimetype);
+        // 1. 文件类型/大小校验
+        const validation = validateFile(req.file);
+        if (!validation.ok) {
+          try { fs.unlinkSync(req.file.path); } catch {} // 校验失败删临时文件
+          return res.status(validation.status).json({ error: validation.error });
+        }
+
+        // 2. 读取尺寸（image-size 仅支持图片，视频尺寸由 Cloudinary 提供或前端读取）
         let width = 0, height = 0;
-        if (!video) {
+        if (!isVideo(req.file.mimetype)) {
           try { const dims = sizeOf(req.file.path); width = dims.width || 0; height = dims.height || 0; } catch {}
         }
 
-        const albumId = req.body.album_id ? parseInt(req.body.album_id) || null : null;
-        const uploaderId = req.body.uploader_id ? parseInt(req.body.uploader_id) || null : null;
+        // 3. 尝试 Cloudinary → 失败则本地兜底
+        let cloudData = null;
+        let storageMode = 'local'; // 'cloudinary' | 'local'
+        let finalUrl = '';
+        let finalPublicId = '';
+        let finalThumb = '';
+        let finalSize = req.file.size;
 
+        try {
+          cloudData = await uploadToCloudinary(req.file.path, req.file.mimetype, 'wallpapers');
+          storageMode = 'cloudinary';
+          finalUrl = cloudData.url;
+          finalPublicId = cloudData.public_id;
+          finalThumb = cloudData.thumbnail || '';
+          finalSize = cloudData.bytes || req.file.size;
+          width = cloudData.width || width;
+          height = cloudData.height || height;
+          // Cloudinary 成功 → 删除本地临时文件
+          try { fs.unlinkSync(req.file.path); } catch {}
+        } catch (cldErr) {
+          console.warn('[upload] Cloudinary 不可用，使用本地存储:', cldErr.message);
+          // 本地兜底
+          finalUrl = `/uploads/${req.file.filename}`;
+          finalPublicId = '';
+          finalThumb = '';
+          storageMode = 'local';
+        }
+
+        // 4. 写入数据库
+        const albumId = req.body.album_id ? parseInt(req.body.album_id) || null : null;
         const db = getDB();
         const info = db.prepare(`
-          INSERT INTO photos (album_id, uploader_id, filename, original_name, media_type, width, height, file_size)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(albumId, uploaderId, req.file.filename, req.file.originalname, video ? 'video' : 'image', width, height, req.file.size);
+          INSERT INTO photos (album_id, uploader_id, filename, original_name, media_type,
+                              url, public_id, thumbnail, width, height, file_size)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          albumId, req.user.id,
+          req.file.filename,          // filename — 始终存 multer 生成的本地文件名
+          req.file.originalname,       // original_name
+          validation.type,             // media_type
+          finalUrl,                    // ★ Cloudinary URL 或 /uploads/xxx.jpg
+          finalPublicId,               // ★ Cloudinary public_id（本地模式为空）
+          finalThumb,                  // ★ Cloudinary 缩略图或空
+          width, height,
+          finalSize
+        );
 
         const row = db.prepare('SELECT * FROM photos WHERE id = ?').get(info.lastInsertRowid);
-        res.status(201).json(row);
+        return res.status(201).json({ ...row, storage_mode: storageMode });
+
       } catch (e) {
+        console.error('[upload] 错误:', e);
         try { fs.unlinkSync(req.file.path); } catch {}
-        throw e;
+        return res.status(500).json({
+          error: '上传处理失败，请重试',
+          detail: process.env.NODE_ENV !== 'production' ? e.message : undefined,
+        });
       }
     });
   });
 
+  // ═══════════════════════════════════════
   // PATCH /api/photos/:id
-  router.patch('/api/photos/:id', (req, res) => {
+  // ═══════════════════════════════════════
+  router.patch('/api/photos/:id', authMiddleware, ownerMiddleware({ ownerField: 'uploader_id', table: 'photos' }), (req, res) => {
     const db = getDB();
     const photo = db.prepare('SELECT * FROM photos WHERE id = ?').get(req.params.id);
     if (!photo) return res.status(404).json({ error: '资源不存在' });
 
-    const { title, description, tags, album_id, thumbnail } = req.body;
+    const allowedFields = { title: 'title', description: 'description', tags: 'tags', album_id: 'album_id' };
     const fields = []; const params = [];
-    if (title !== undefined) { fields.push('title = ?'); params.push(title); }
-    if (description !== undefined) { fields.push('description = ?'); params.push(description); }
-    if (tags !== undefined) { fields.push('tags = ?'); params.push(tags); }
-    if (thumbnail !== undefined) { fields.push('thumbnail = ?'); params.push(thumbnail); }
-    if (album_id !== undefined) { fields.push('album_id = ?'); params.push(album_id === null ? null : parseInt(album_id) || null); }
+    for (const [key, col] of Object.entries(allowedFields)) {
+      if (req.body[key] !== undefined) {
+        fields.push(`${col} = ?`);
+        params.push(key === 'album_id' ? (req.body[key] === null ? null : parseInt(req.body[key]) || null) : req.body[key]);
+      }
+    }
 
     if (fields.length) {
       params.push(req.params.id);
@@ -135,19 +197,34 @@ function register(router, upload) {
     res.json(updated);
   });
 
+  // ═══════════════════════════════════════
   // DELETE /api/photos/:id
-  router.delete('/api/photos/:id', (req, res) => {
+  // ═══════════════════════════════════════
+  router.delete('/api/photos/:id', authMiddleware, ownerMiddleware({ ownerField: 'uploader_id', table: 'photos' }), (req, res) => {
     const db = getDB();
     const photo = db.prepare('SELECT * FROM photos WHERE id = ?').get(req.params.id);
     if (!photo) return res.status(404).json({ error: '资源不存在' });
 
+    // 从 Cloudinary 删除
+    if (photo.public_id) {
+      deleteFromCloudinary(photo.public_id, photo.media_type === 'video' ? 'video' : 'image').catch(() => {});
+    }
+
+    // 清理本地残留文件（兼容旧数据）
+    if (photo.filename && !photo.filename.includes('/')) {
+      try { fs.unlinkSync(path.join(UPLOADS_DIR, photo.filename)); } catch {}
+    }
+    if (photo.thumbnail && !photo.thumbnail.includes('cloudinary')) {
+      try { fs.unlinkSync(path.join(THUMBS_DIR, photo.thumbnail)); } catch {}
+    }
+
     db.prepare('DELETE FROM photos WHERE id = ?').run(req.params.id);
-    try { fs.unlinkSync(path.join(UPLOADS_DIR, photo.filename)); } catch {}
-    if (photo.thumbnail) { try { fs.unlinkSync(path.join(THUMBS_DIR, photo.thumbnail)); } catch {} }
     res.json({ success: true });
   });
 
+  // ═══════════════════════════════════════
   // POST /api/photos/:id/download
+  // ═══════════════════════════════════════
   router.post('/api/photos/:id/download', optionalAuth, (req, res) => {
     const db = getDB();
     const photo = db.prepare('SELECT * FROM photos WHERE id = ?').get(req.params.id);
@@ -157,8 +234,9 @@ function register(router, upload) {
     if (req.user) {
       db.prepare('INSERT INTO downloads (user_id, photo_id) VALUES (?, ?)').run(req.user.id, req.params.id);
     }
-    const updated = db.prepare('SELECT download_count FROM photos WHERE id = ?').get(req.params.id);
-    res.json({ download_count: updated.download_count });
+
+    const updated = db.prepare('SELECT download_count, url FROM photos WHERE id = ?').get(req.params.id);
+    res.json({ download_count: updated.download_count, download_url: updated.url });
   });
 }
 

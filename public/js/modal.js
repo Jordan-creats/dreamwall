@@ -1,24 +1,41 @@
 import * as API from './api.js';
 import * as Store from './store.js';
-import { formatDate, formatSize, formatDuration, toast } from './utils.js';
+import { formatDate, formatSize, formatDuration, toast, escapeHtml } from './utils.js';
 
 let currentIdx = -1;
 
 const $ = (id) => document.getElementById(id);
 
-export function openModal(idx) {
+// ★ Cloudinary URL 优先 → 本地降级
+function getModalSrc(p) {
+  return p.url || `/uploads/${p.filename}`;
+}
+
+// ── Image preloading ────────────────
+const preloadCache = new Set();
+function preload(url) {
+  if (!url || preloadCache.has(url)) return;
+  preloadCache.add(url);
+  const link = document.createElement('link');
+  link.rel = 'preload'; link.as = 'image'; link.href = url;
+  document.head.appendChild(link);
+}
+export function openModal(idx, fullSrc) {
   const photos = Store.getPhotos();
   if (idx < 0 || idx >= photos.length) return;
   currentIdx = idx;
-  showContent();
+  showContent(fullSrc);
   $('modal').classList.add('open');
   document.body.style.overflow = 'hidden';
-  // Auto-play video in modal
+
   const p = photos[idx];
   if (p.media_type === 'video') {
-    const vid = $('modalVideo');
-    vid.play().catch(() => {});
+    $('modalVideo').play().catch(() => {});
   }
+
+  // ★ Preload adjacent images for instant prev/next
+  if (idx + 1 < photos.length) preload(getModalSrc(photos[idx + 1]));
+  if (idx - 1 >= 0) preload(getModalSrc(photos[idx - 1]));
 }
 
 export function closeModal() {
@@ -32,20 +49,22 @@ export function closeModal() {
 export function prev() { const photos = Store.getPhotos(); currentIdx = (currentIdx - 1 + photos.length) % photos.length; showContent(); }
 export function next() { const photos = Store.getPhotos(); currentIdx = (currentIdx + 1) % photos.length; showContent(); }
 
-function showContent() {
+function showContent(preloadedSrc) {
   const photos = Store.getPhotos();
   if (currentIdx < 0 || currentIdx >= photos.length) return;
   const p = photos[currentIdx];
   const isVideo = p.media_type === 'video';
   const faved = Store.isFaved(p.id);
 
-  // Toggle img vs video
+  // ★ 使用预加载的大图 URL，弹窗秒开
+  const fullSrc = preloadedSrc || getModalSrc(p);
+
   const img = $('modalImg');
   const vid = $('modalVideo');
   if (isVideo) {
     img.style.display = 'none';
     vid.style.display = '';
-    vid.querySelector('source').src = `/uploads/${p.filename}`;
+    vid.querySelector('source').src = fullSrc;
     vid.load();
     vid.play().catch(() => {});
     $('modalVideoControls').style.display = '';
@@ -53,7 +72,7 @@ function showContent() {
     vid.style.display = 'none';
     vid.pause();
     img.style.display = '';
-    img.src = `/uploads/${p.filename}`;
+    img.src = fullSrc;
     $('modalVideoControls').style.display = 'none';
   }
 
@@ -95,7 +114,7 @@ function showContent() {
   // Tags
   const tags = (p.tags || '').split(',').map(t => t.trim()).filter(Boolean);
   $('modalTags').innerHTML = tags.length
-    ? tags.map(t => `<span class="modal-tag">${t}</span>`).join('')
+    ? tags.map(t => `<span class="modal-tag">${escapeHtml(t)}</span>`).join('')
     : '';
 
   // IDs
@@ -106,7 +125,7 @@ function showContent() {
 
   // Download
   const dl = $('modalDownload');
-  dl.href = `/uploads/${p.filename}`;
+  dl.href = getModalSrc(p);
   dl.download = p.original_name || p.filename;
   $('modalDownloadText').textContent = isVideo ? '下载视频' : '下载原图';
 
