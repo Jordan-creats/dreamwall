@@ -1,6 +1,7 @@
 import * as API from './api.js';
 import * as Store from './store.js';
 import { formatDate, formatSize, formatDuration, toast, escapeHtml } from './utils.js';
+import { isViewOnly, showLoginPrompt } from './upload.js';
 
 let currentIdx = -1;
 
@@ -213,6 +214,11 @@ export function initModal() {
   $('modalDownload').addEventListener('click', async (e) => {
     const id = e.currentTarget.dataset.id;
     if (!id) return;
+    if (isViewOnly()) {
+      e.preventDefault();
+      showLoginPrompt();
+      return;
+    }
     API.incrementDownload(Number(id)).catch(() => {});
     const photos = Store.getPhotos();
     const p = photos.find(ph => ph.id === Number(id));
@@ -223,6 +229,10 @@ export function initModal() {
   $('modalFavorite').addEventListener('click', () => {
     const id = $('modalFavorite').dataset.id;
     if (!id) return;
+    if (isViewOnly()) {
+      showLoginPrompt();
+      return;
+    }
     Store.toggleFavorite(id);
     const faved = Store.isFaved(id);
     updateFavButton(Number(id), faved);

@@ -2,7 +2,7 @@ import * as API from './api.js';
 import * as Store from './store.js';
 import { render, loadPage } from './gallery.js';
 import { initModal } from './modal.js';
-import { initUpload } from './upload.js';
+import { initUpload, clearViewOnly } from './upload.js';
 import { initToolbar, renderCategoryBar } from './toolbar.js';
 import { initParticles, initMouseGlow, initBanners, initFeatured, initTrendingTags, showSkeleton, hideSkeleton } from './effects.js';
 
@@ -26,6 +26,7 @@ async function loadUser() {
     if (res.ok) {
       currentUser = await res.json();
       localStorage.setItem('wp_user', JSON.stringify(currentUser));
+      clearViewOnly();
       return currentUser;
     }
   } catch {}

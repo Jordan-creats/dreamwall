@@ -9,23 +9,63 @@ function isLoggedIn() {
   return !!(localStorage.getItem('wp_token') || localStorage.getItem('wp_user'));
 }
 
-// ★ 登录提示弹窗
-function showLoginPrompt() {
+// ★ 视图模式 — 未登录用户只能查看，不能下载/上传
+export function isViewOnly() {
+  return !isLoggedIn() || sessionStorage.getItem('wp_view_only') === '1';
+}
+
+export function setViewOnly() {
+  sessionStorage.setItem('wp_view_only', '1');
+}
+
+export function clearViewOnly() {
+  sessionStorage.removeItem('wp_view_only');
+}
+
+// ★ 登录提示弹窗 — 按钮初始化（仅一次）
+let promptInited = false;
+function initPrompt() {
+  if (promptInited) return;
+  promptInited = true;
   const overlay = document.getElementById('loginPrompt');
+  const loginBtn = document.getElementById('promptLogin');
   const cancelBtn = document.getElementById('promptCancel');
   if (!overlay) return;
-
-  overlay.classList.add('open');
 
   function close() {
     overlay.classList.remove('open');
   }
 
-  cancelBtn.onclick = close;
-  overlay.onclick = (e) => { if (e.target === overlay) close(); };
+  // 去登录 → 直接跳转
+  loginBtn.addEventListener('click', () => {
+    window.location.href = '/login.html';
+  });
+
+  // 暂不上传 → 关闭提示 + 设为视图模式
+  cancelBtn.addEventListener('click', () => {
+    close();
+    setViewOnly();
+  });
+
+  // 点击蒙层关闭
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      close();
+      setViewOnly();
+    }
+  });
+
+  // ESC 关闭
   document.addEventListener('keydown', function onEsc(e) {
     if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onEsc); }
   });
+}
+
+export function showLoginPrompt(onCancel) {
+  const overlay = document.getElementById('loginPrompt');
+  if (!overlay) return;
+  initPrompt();
+  overlay.classList.add('open');
 }
 
 export function initUpload() {

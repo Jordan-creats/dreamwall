@@ -2,6 +2,7 @@ import * as API from './api.js';
 import * as Store from './store.js';
 import { escapeHtml, formatDate } from './utils.js';
 import { openModal } from './modal.js';
+import { isViewOnly, showLoginPrompt } from './upload.js';
 
 let hoverTimer = null;
 let loading = false;
@@ -212,6 +213,10 @@ export function render(photos, append = false) {
     card.addEventListener('click', (e) => {
       if (e.target.closest('[data-action="fav"]')) {
         e.stopPropagation(); e.preventDefault();
+        if (isViewOnly()) {
+          showLoginPrompt();
+          return;
+        }
         const btn = e.target.closest('[data-action="fav"]');
         const id = btn.dataset.id;
         Store.toggleFavorite(id);
