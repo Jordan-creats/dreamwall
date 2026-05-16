@@ -10,8 +10,10 @@ function isLoggedIn() {
 }
 
 // ★ 视图模式 — 未登录用户只能查看，不能下载/上传
+// 已登录用户永远不受视图模式限制
 export function isViewOnly() {
-  return !isLoggedIn() || sessionStorage.getItem('wp_view_only') === '1';
+  if (isLoggedIn()) return false;
+  return sessionStorage.getItem('wp_view_only') === '1';
 }
 
 export function setViewOnly() {
