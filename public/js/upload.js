@@ -30,7 +30,7 @@ function initPrompt() {
   const overlay = document.getElementById('loginPrompt');
   const loginBtn = document.getElementById('promptLogin');
   const cancelBtn = document.getElementById('promptCancel');
-  if (!overlay) return;
+  if (!overlay || !loginBtn || !cancelBtn) return;
 
   function close() {
     overlay.classList.remove('open');

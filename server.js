@@ -19,6 +19,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const isProd = process.env.NODE_ENV === 'production';
 
+// 信任反向代理（nginx / Cloudflare 等），确保 cookie、rate-limit 等正确
+if (process.env.TRUST_PROXY !== 'false') {
+  app.set('trust proxy', process.env.TRUST_PROXY || 1);
+}
+
 // ════════════════════════════════════
 // SECURITY
 // ════════════════════════════════════

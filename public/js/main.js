@@ -22,7 +22,10 @@ let currentUser = null;
 
 async function loadUser() {
   try {
-    const res = await fetch('/api/auth/me');
+    const headers = {};
+    const token = localStorage.getItem('wp_token');
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const res = await fetch('/api/auth/me', { headers });
     if (res.ok) {
       currentUser = await res.json();
       localStorage.setItem('wp_user', JSON.stringify(currentUser));

@@ -96,6 +96,7 @@
         if (!res.ok) { $('authError').textContent = data.error; return; }
         localStorage.setItem('wp_token', data.token);
         localStorage.setItem('wp_user', JSON.stringify(data.user));
+        sessionStorage.removeItem('wp_view_only'); // ★ 清除视图模式
         $('authSuccess').textContent = '登录成功！正在跳转...';
         setTimeout(() => { window.location.href = '/'; }, 800);
       } catch { $('authError').textContent = '网络错误，请重试'; }
@@ -112,6 +113,7 @@
         if (!res.ok) { $('authError').textContent = data.error; return; }
         localStorage.setItem('wp_token', data.token);
         localStorage.setItem('wp_user', JSON.stringify(data.user));
+        sessionStorage.removeItem('wp_view_only'); // ★ 清除视图模式
         $('authSuccess').textContent = '注册成功！正在跳转...';
         setTimeout(() => { window.location.href = '/'; }, 800);
       } catch { $('authError').textContent = '网络错误，请重试'; }
