@@ -1,0 +1,3 @@
+[submodule "openclaw-spm"]
+	path = openclaw-spm
+	url = https://github.com/zhbcher/openclaw-spm.git

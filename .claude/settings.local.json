@@ -1,7 +1,35 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm --version)"
+      "Bash(npm --version)",
+      "Bash(npm test *)",
+      "Bash(npm ls *)",
+      "Bash(npm run *)",
+      "Bash(git clone *)",
+      "Bash(git config *)",
+      "Bash(curl -sI --connect-timeout 10 https://github.com)",
+      "Bash(env)",
+      "Bash(ssh -T -o ConnectTimeout=10 git@github.com)",
+      "Bash(ssh-keyscan -H github.com >> ~/.ssh/known_hosts 2>&1 && git clone git@github.com:zhbcher/openclaw-spm.git 2>&1)",
+      "Bash(ssh-keyscan -H github.com)",
+      "Bash(ssh-keygen -t ed25519 -C \"github-ssh-key\" -f ~/.ssh/id_ed25519 -N \"\")",
+      "Bash(bash openclaw-spm/scripts/attest-wbs.sh)",
+      "Bash(bash openclaw-spm/scripts/verify-wbs.sh)",
+      "Bash(bash openclaw-spm/scripts/switch-ledger.sh *)",
+      "Bash(bash openclaw-spm/scripts/init-spm.sh)",
+      "Bash(bash openclaw-spm/scripts/checkpoint.sh *)",
+      "Bash(bash openclaw-spm/scripts/quality-check.sh *)",
+      "Bash(bash openclaw-spm/scripts/setup-checkpoints.sh)",
+      "Bash(python3 openclaw-spm/scripts/session-recovery.py)",
+      "Bash(python3 openclaw-spm/scripts/inject-wbs-context.py)",
+      "Bash(mkdir -p *)",
+      "Bash(cp openclaw-spm/templates/* *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(f'Permissions: {len\\(d[\\\\\"permissions\\\\\"][\\\\\"allow\\\\\"]\\)} allowed'\\)\")"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\1\\.ssh"
     ]
   }
 }
