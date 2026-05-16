@@ -38,8 +38,10 @@ function initPrompt() {
     overlay.classList.remove('open');
   }
 
-  // 去登录 → 直接跳转
+  // 去登录 → 跳转（带加载反馈）
   loginBtn.addEventListener('click', () => {
+    loginBtn.textContent = '跳转中...';
+    loginBtn.disabled = true;
     window.location.href = '/login.html';
   });
 
@@ -201,7 +203,7 @@ async function doUpload() {
     try {
       const albums = await API.getAlbums();
       Store.setAlbums(albums);
-    } catch {}
+    } catch (e) { console.error('[upload refreshAlbums]', e); }
   }
 
   closeDrawer();

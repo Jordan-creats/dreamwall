@@ -32,7 +32,7 @@ async function loadUser() {
       clearViewOnly();
       return currentUser;
     }
-  } catch {}
+  } catch (e) { console.error('[loadUser]', e); }
   try { currentUser = JSON.parse(localStorage.getItem('wp_user')); } catch { currentUser = null; }
   return currentUser;
 }
@@ -72,7 +72,7 @@ async function initAuthUI() {
     if (logoutBtn) {
       logoutBtn.addEventListener('click', async (e) => {
         e.preventDefault();
-        try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
+        try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) { console.error('[logout]', e); }
         localStorage.removeItem('wp_token'); localStorage.removeItem('wp_user');
         window.location.reload();
       });

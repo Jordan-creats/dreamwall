@@ -182,5 +182,5 @@ export async function initTrendingTags() {
     container.innerHTML = tags.map(([t, c]) =>
       `<a href="/?search=${encodeURIComponent(t)}" class="hero-tag">${t}<span style="font-size:.64rem;opacity:.5;margin-left:3px">${c}</span></a>`
     ).join('');
-  } catch {}
+  } catch (e) { console.error('[trendingTags]', e); }
 }

@@ -274,7 +274,7 @@ async function loadDashboard() {
     $('recentLogs').innerHTML = (logData?.logs || []).map(l =>
       `<div class="log-entry"><span class="log-action">${actionLabel(l.action)}</span><span class="log-detail">${l.detail || ''}</span><span class="log-time">${(l.created_at||'').slice(5,16)}</span></div>`
     ).join('') || '<div class="empty-state">暂无操作记录</div>';
-  } catch {}
+  } catch (e) { console.error('[admin recentLogs]', e); }
 }
 
 function actionLabel(a) {

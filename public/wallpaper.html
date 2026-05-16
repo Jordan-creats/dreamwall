@@ -167,7 +167,7 @@ async function load() {
     dlBtn.href = getSrc(p);
     dlBtn.download = p.original_name || 'wallpaper';
     dlBtn.addEventListener('click', async (e) => {
-      try { await fetch(`/api/photos/${photoId}/download`, { method: 'POST' }); } catch {}
+      try { await fetch(`/api/photos/${photoId}/download`, { method: 'POST' }); } catch (e) { console.error('[detail download]', e); }
     });
 
     // Favorite
@@ -197,7 +197,7 @@ async function load() {
           document.getElementById('dFavText').textContent = '已收藏';
         }
       }
-    } catch {}
+    } catch (e) { console.error('[detail favCheck]', e); }
 
     // Load related (same album)
     if (p.album_slug) {
