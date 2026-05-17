@@ -8,6 +8,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { initDB } = require('./db');
 const { initCloudinary } = require('./config/cloudinary');
+const { initMail } = require('./services/mail');
 
 // ── Route modules ────────────────────
 const albums = require('./routes/albums');
@@ -197,6 +198,7 @@ app.use((err, _req, res, _next) => {
 // START
 // ════════════════════════════════════
 initDB();
+initMail();
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
 });

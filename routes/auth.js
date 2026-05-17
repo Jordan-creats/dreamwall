@@ -3,10 +3,12 @@ const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
 const { getDB } = require('../db');
 const { authMiddleware, generateToken, setTokenCookie, clearTokenCookie } = require('../middleware/auth');
+const { sendResetCode } = require('../services/mail');
 
 const isDev = process.env.NODE_ENV !== 'production';
 const HAS_SMS = !!(process.env.SMS_API_KEY && process.env.SMS_API_SECRET);
 const HAS_WECHAT = !!(process.env.WECHAT_APP_ID && process.env.WECHAT_APP_SECRET);
+const HAS_MAIL = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 
 function register(router) {
   // ═══════════════════════════════════════
@@ -215,7 +217,7 @@ function register(router) {
   // ═══════════════════════════════════════
   router.post('/api/auth/forgot-password', [
     body('email').isEmail().normalizeEmail().withMessage('请输入有效的邮箱地址'),
-  ], (req, res) => {
+  ], async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ error: errors.array()[0].msg });
 
@@ -236,9 +238,19 @@ function register(router) {
     db.prepare('INSERT INTO password_resets (user_id, token_hash, code, expires_at) VALUES (?, ?, ?, ?)')
       .run(user.id, tokenHash, code, expiresAt);
 
+    // 发送邮件
+    if (HAS_MAIL) {
+      try {
+        await sendResetCode(email, code);
+        console.log(`[mail] 重置码已发送到 ${email}`);
+      } catch (err) {
+        console.error('[mail] 发送失败:', err.message);
+      }
+    }
+
     const resp = { success: true, message: '如果该邮箱已注册，重置码已发送' };
-    if (isDev || !process.env.SMTP_HOST) {
-      resp.dev_note = '开发模式：生产环境会通过邮件发送此验证码';
+    if (!HAS_MAIL) {
+      resp.dev_note = '邮件服务未配置，开发模式显示验证码';
       resp.dev_token = rawToken;
       resp.dev_code = code;
     }
