@@ -87,6 +87,25 @@ function initDB() {
       detail      TEXT DEFAULT '',
       created_at  TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS password_resets (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL,
+      code       TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used       INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS sms_codes (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      phone      TEXT NOT NULL,
+      code       TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used       INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   // ── Migration: new columns ─────────────
@@ -97,6 +116,10 @@ function initDB() {
   const userCols = db.prepare("PRAGMA table_info('users')").all().map(c => c.name);
   if (!userCols.includes('banned')) db.exec("ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0");
   if (!userCols.includes('banned_reason')) db.exec("ALTER TABLE users ADD COLUMN banned_reason TEXT DEFAULT ''");
+  if (!userCols.includes('phone')) db.exec("ALTER TABLE users ADD COLUMN phone TEXT DEFAULT NULL");
+  if (!userCols.includes('phone_verified')) db.exec("ALTER TABLE users ADD COLUMN phone_verified INTEGER DEFAULT 0");
+  if (!userCols.includes('wechat_openid')) db.exec("ALTER TABLE users ADD COLUMN wechat_openid TEXT DEFAULT NULL");
+  if (!userCols.includes('wechat_unionid')) db.exec("ALTER TABLE users ADD COLUMN wechat_unionid TEXT DEFAULT NULL");
 
   // Migration: add columns to existing tables if missing (continued)
   if (!photoCols.includes('media_type')) db.exec("ALTER TABLE photos ADD COLUMN media_type TEXT DEFAULT 'image'");
@@ -106,6 +129,12 @@ function initDB() {
   if (!photoCols.includes('status')) db.exec("ALTER TABLE photos ADD COLUMN status TEXT DEFAULT 'approved'");
   if (!photoCols.includes('url')) db.exec("ALTER TABLE photos ADD COLUMN url TEXT DEFAULT ''");
   if (!photoCols.includes('public_id')) db.exec("ALTER TABLE photos ADD COLUMN public_id TEXT DEFAULT ''");
+
+  // ── Partial unique indexes for nullable columns (after migrations) ──
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone ON users(phone) WHERE phone IS NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_wechat_openid ON users(wechat_openid) WHERE wechat_openid IS NOT NULL;
+  `);
 
   // Seed default albums
   const albumCount = db.prepare('SELECT COUNT(*) AS c FROM albums').get();

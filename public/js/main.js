@@ -146,8 +146,30 @@ function initHeaderShrink() {
   }, { passive: true });
 }
 
+/* ── WeChat OAuth callback ──────────── */
+function handleWeChatCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('wechat_token');
+  if (token) {
+    localStorage.setItem('wp_token', token);
+    sessionStorage.removeItem('wp_view_only');
+    // 移除 URL 参数
+    const url = new URL(window.location);
+    url.searchParams.delete('wechat_token');
+    window.history.replaceState({}, '', url);
+    // 异步获取用户信息
+    fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(r => r.json())
+      .then(u => { if (u && u.id) localStorage.setItem('wp_user', JSON.stringify(u)); })
+      .catch(() => {});
+  }
+}
+
 /* ── Bootstrap ──────────────────────── */
 async function bootstrap() {
+  // ★ 处理微信回调 token
+  handleWeChatCallback();
+
   // ★ 同步初始化（不需要等 API）
   initTheme();
   initModal();

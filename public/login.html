@@ -20,15 +20,15 @@
   .auth-form input {
     padding: 10px 14px; border-radius: var(--radius-sm); font-size: .9rem;
     background: var(--bg); color: var(--text); border: 1px solid var(--border); outline: none;
-    transition: border-color .2s;
+    transition: border-color .2s; width: 100%; box-sizing: border-box;
   }
   .auth-form input:focus { border-color: var(--accent); }
   .auth-error { color: #f87171; font-size: .78rem; text-align: center; min-height: 1.2em; }
-  .auth-switch { text-align: center; margin-top: 16px; font-size: .82rem; color: var(--text-muted); }
-  .auth-switch a { color: var(--accent); cursor: pointer; font-weight: 600; }
+  .auth-success { color: #4ade80; text-align: center; font-size: .82rem; margin-top: 8px; }
   .auth-back { text-align: center; margin-top: 12px; }
   .auth-back a { color: var(--text-muted); font-size: .8rem; }
-  .auth-success { color: #4ade80; text-align: center; font-size: .82rem; margin-top: 8px; }
+  .forgot-link { text-align: right; margin-top: -8px; }
+  .forgot-link a { font-size: .76rem; color: var(--accent); cursor: pointer; }
 </style>
 </head>
 <body class="auth-page">
@@ -37,94 +37,473 @@
     <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="8" fill="url(#lg)"/><path d="M6 20V8l7 8 3-4 3 4 3-6v10H6z" fill="white" opacity="0.9"/><defs><linearGradient id="lg" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#a855f7"/><stop offset="1" stop-color="#6366f1"/></linearGradient></defs></svg>
     <span>光影集</span>
   </a>
-  <h1 id="authTitle">欢迎回来</h1>
-  <p class="sub" id="authSub">登录你的账户继续使用</p>
+
+  <!-- Tabs -->
+  <div class="auth-tabs">
+    <button type="button" class="auth-tab active" data-tab="login">账号登录</button>
+    <button type="button" class="auth-tab" data-tab="phone">手机登录</button>
+    <button type="button" class="auth-tab" data-tab="register">注册</button>
+    <button type="button" class="auth-tab" data-tab="forgot">忘记密码</button>
+  </div>
+
   <div class="auth-error" id="authError"></div>
-  <form class="auth-form" id="authForm">
-    <div id="usernameField" style="display:none">
-      <label>用户名</label>
-      <input type="text" id="regUsername" placeholder="2-30个字符" />
+
+  <!-- Tab 1: Account Login -->
+  <div class="auth-section active" id="section-login">
+    <form class="auth-form" id="loginForm">
+      <div>
+        <label>用户名 / 邮箱 / 手机号</label>
+        <input type="text" id="loginField" placeholder="请输入用户名、邮箱或手机号" required />
+      </div>
+      <div>
+        <label>密码</label>
+        <input type="password" id="loginPassword" placeholder="请输入密码" required minlength="6" />
+      </div>
+      <p class="forgot-link"><a id="toForgotLink">忘记密码?</a></p>
+      <button type="submit" class="btn-primary btn-full">登 录</button>
+    </form>
+  </div>
+
+  <!-- Tab 2: Phone Login -->
+  <div class="auth-section" id="section-phone">
+    <div class="phone-mode-switch" style="margin-bottom:10px">
+      <a id="phoneModeSwitch">切换验证码登录</a>
     </div>
-    <div>
-      <label>用户名 / 邮箱</label>
-      <input type="text" id="loginField" placeholder="请输入用户名或邮箱" required />
+    <form class="auth-form" id="phoneForm">
+      <!-- Password sub-mode -->
+      <div id="phonePwdMode">
+        <div>
+          <label>手机号</label>
+          <input type="tel" id="phoneFieldPwd" placeholder="请输入手机号" maxlength="11" />
+        </div>
+        <div>
+          <label>密码</label>
+          <input type="password" id="phonePwdField" placeholder="请输入密码" minlength="6" />
+        </div>
+      </div>
+      <!-- SMS sub-mode -->
+      <div id="phoneSmsMode" style="display:none">
+        <div>
+          <label>手机号</label>
+          <div class="phone-row">
+            <input type="tel" id="phoneFieldSms" placeholder="请输入手机号" maxlength="11" />
+            <button type="button" class="sms-btn" id="smsSendBtn">发送验证码</button>
+          </div>
+        </div>
+        <div>
+          <label>验证码</label>
+          <input type="text" id="phoneCodeField" placeholder="请输入6位验证码" maxlength="6" inputmode="numeric" />
+        </div>
+      </div>
+      <button type="submit" class="btn-primary btn-full" id="phoneSubmitBtn">登 录</button>
+    </form>
+    <div class="auth-success" id="phoneRegisterHint" style="display:none">
+      该手机号尚未注册，<a id="toRegisterFromPhone" style="color:var(--accent);cursor:pointer">立即注册</a>
     </div>
-    <div>
-      <label>密码</label>
-      <input type="password" id="passwordField" placeholder="至少6位" required minlength="6" />
+  </div>
+
+  <!-- Tab 3: Register -->
+  <div class="auth-section" id="section-register">
+    <form class="auth-form" id="registerForm">
+      <div>
+        <label>用户名</label>
+        <input type="text" id="regUsername" placeholder="2-30个字符" required minlength="2" maxlength="30" />
+      </div>
+      <div>
+        <label>邮箱</label>
+        <input type="email" id="regEmail" placeholder="请输入邮箱" required />
+      </div>
+      <div>
+        <label>手机号 <span style="color:var(--text-muted);font-weight:400">（可选）</span></label>
+        <div class="phone-row">
+          <input type="tel" id="regPhone" placeholder="请输入手机号" maxlength="11" />
+          <button type="button" class="sms-btn" id="regSmsBtn" disabled>发送验证码</button>
+        </div>
+      </div>
+      <div id="regSmsCodeWrap" style="display:none">
+        <label>短信验证码</label>
+        <input type="text" id="regSmsCode" placeholder="请输入6位验证码" maxlength="6" inputmode="numeric" />
+      </div>
+      <div>
+        <label>密码</label>
+        <input type="password" id="regPassword" placeholder="至少6位" required minlength="6" />
+      </div>
+      <button type="submit" class="btn-primary btn-full">注 册</button>
+    </form>
+  </div>
+
+  <!-- Tab 4: Forgot Password -->
+  <div class="auth-section" id="section-forgot">
+    <div class="forgot-steps">
+      <span class="forgot-step active" id="forgotStep1">1</span>
+      <span class="forgot-divider" id="forgotDivider"></span>
+      <span class="forgot-step" id="forgotStep2">2</span>
     </div>
-    <button type="submit" class="btn-primary btn-full" id="submitBtn">登 录</button>
-  </form>
+    <!-- Step 1: Enter email -->
+    <form class="auth-form" id="forgotForm1">
+      <div>
+        <label>注册邮箱</label>
+        <input type="email" id="forgotEmail" placeholder="请输入注册时使用的邮箱" required />
+      </div>
+      <button type="submit" class="btn-primary btn-full" id="forgotSendBtn">发送重置码</button>
+    </form>
+    <!-- Step 2: Enter code + new password -->
+    <form class="auth-form" id="forgotForm2" style="display:none">
+      <div>
+        <label>6位验证码</label>
+        <input type="text" id="forgotCode" placeholder="请输入验证码" maxlength="6" inputmode="numeric" required />
+      </div>
+      <div>
+        <label>新密码</label>
+        <input type="password" id="forgotNewPwd" placeholder="至少6位" required minlength="6" />
+      </div>
+      <div>
+        <label>确认新密码</label>
+        <input type="password" id="forgotNewPwd2" placeholder="再次输入新密码" required minlength="6" />
+      </div>
+      <button type="submit" class="btn-primary btn-full">重置密码</button>
+    </form>
+    <div class="forgot-back"><a id="backFromForgot">← 返回登录</a></div>
+  </div>
+
   <div class="auth-success" id="authSuccess"></div>
-  <p class="auth-switch" id="authSwitch">
-    还没有账户？<a id="switchLink">立即注册</a>
-  </p>
+
+  <!-- WeChat -->
+  <div id="wechatSection" style="display:none">
+    <div class="wechat-divider">其他登录方式</div>
+    <a class="btn-wechat" id="wechatLoginBtn" href="#">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8.69 3.46C4.62 3.76 1.4 7.08 1.2 11.15c-.1 2.15.71 4.1 2.05 5.55l-.42 1.7c-.09.37.27.7.63.54l1.92-.85c.76.31 1.6.48 2.5.48.35 0 .69-.03 1.02-.08-.15-.48-.23-.98-.23-1.5 0-3.97 3.21-7.2 7.17-7.2.42 0 .83.04 1.23.11a6.02 6.02 0 0 0-6.18-7.44zM5.8 9.2c.5 0 .9.4.9.9s-.4.9-.9.9-.9-.4-.9-.9.4-.9.9-.9zm4.3 0c.5 0 .9.4.9.9s-.4.9-.9.9-.9-.4-.9-.9.4-.9.9-.9z"/><path d="M18.18 10.32c-3.54 0-6.42 2.88-6.42 6.42s2.88 6.42 6.42 6.42c.89 0 1.74-.18 2.5-.5l1.74.78c.31.14.64-.14.57-.49l-.3-1.56c1.23-1.11 1.99-2.68 1.99-4.44 0-3.55-2.88-6.42-6.42-6.42h-.08zm-2.38 5.66c.42 0 .76.34.76.76s-.34.76-.76.76-.76-.34-.76-.76.34-.76.76-.76zm4.82 0c.42 0 .76.34.76.76s-.34.76-.76.76-.76-.34-.76-.76.34-.76.76-.76z"/></svg>
+      微信登录
+    </a>
+  </div>
+
   <p class="auth-back"><a href="/">← 返回首页</a></p>
 </div>
+
 <script>
-  let mode = 'login';
-  const $ = (s) => document.getElementById(s);
-
-  function toggleMode() {
-    mode = mode === 'login' ? 'register' : 'login';
-    $('authTitle').textContent = mode === 'login' ? '欢迎回来' : '创建账户';
-    $('authSub').textContent = mode === 'login' ? '登录你的账户继续使用' : '注册一个新账户';
-    $('submitBtn').textContent = mode === 'login' ? '登 录' : '注 册';
-    $('usernameField').style.display = mode === 'register' ? '' : 'none';
-    $('switchLink').textContent = mode === 'login' ? '立即注册' : '去登录';
-    $('authSwitch').innerHTML = mode === 'login'
-      ? '还没有账户？<a id="switchLink">立即注册</a>'
-      : '已有账户？<a id="switchLink">去登录</a>';
-    document.getElementById('switchLink').onclick = toggleMode;
-    $('authError').textContent = '';
-  }
-  document.getElementById('switchLink').onclick = toggleMode;
-
-  $('authForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    $('authError').textContent = '';
-    $('authSuccess').textContent = '';
-
-    if (mode === 'login') {
-      const login = $('loginField').value.trim();
-      const password = $('passwordField').value;
-      if (!login || !password) { $('authError').textContent = '请填写所有字段'; return; }
-      try {
-        const res = await fetch('/api/auth/login', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ login, password })
-        });
-        const data = await res.json();
-        if (!res.ok) { $('authError').textContent = data.error; return; }
-        localStorage.setItem('wp_token', data.token);
-        localStorage.setItem('wp_user', JSON.stringify(data.user));
-        sessionStorage.removeItem('wp_view_only'); // ★ 清除视图模式
-        $('authSuccess').textContent = '登录成功！正在跳转...';
-        setTimeout(() => { window.location.href = '/'; }, 800);
-      } catch { $('authError').textContent = '网络错误，请重试'; }
-    } else {
-      const username = $('regUsername').value.trim();
-      const email = $('loginField').value.trim();
-      const password = $('passwordField').value;
-      if (!username || !email || !password) { $('authError').textContent = '请填写所有字段'; return; }
-      try {
-        const res = await fetch('/api/auth/register', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, email, password })
-        });
-        const data = await res.json();
-        if (!res.ok) { $('authError').textContent = data.error; return; }
-        localStorage.setItem('wp_token', data.token);
-        localStorage.setItem('wp_user', JSON.stringify(data.user));
-        sessionStorage.removeItem('wp_view_only'); // ★ 清除视图模式
-        $('authSuccess').textContent = '注册成功！正在跳转...';
-        setTimeout(() => { window.location.href = '/'; }, 800);
-      } catch { $('authError').textContent = '网络错误，请重试'; }
-    }
-  });
-
+(function() {
   // Auto-redirect if already logged in
   if (localStorage.getItem('wp_token')) {
     window.location.href = '/';
+    return;
   }
+
+  const $ = (s) => document.getElementById(s);
+  const state = {
+    tab: 'login',
+    phoneMode: 'password', // 'password' | 'sms'
+    forgotStep: 1,
+    resetToken: null,
+    smsCountdown: 0,
+    smsTimer: null,
+    pendingPhone: null, // from login-phone need_register
+  };
+
+  // ── Tab switching ────────────────────
+  function switchTab(tab) {
+    state.tab = tab;
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    document.querySelectorAll('.auth-section').forEach(s => s.classList.remove('active'));
+    const sec = $('section-' + tab);
+    if (sec) sec.classList.add('active');
+    $('authError').textContent = '';
+    $('authSuccess').textContent = '';
+
+    if (tab === 'register' && state.pendingPhone) {
+      $('regPhone').value = state.pendingPhone;
+      state.pendingPhone = null;
+    }
+  }
+
+  document.querySelectorAll('.auth-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+  });
+
+  // ── Error/Success helpers ────────────
+  function showError(msg) { $('authError').textContent = msg; $('authSuccess').textContent = ''; }
+  function showSuccess(msg) { $('authSuccess').textContent = msg; $('authError').textContent = ''; }
+
+  function handleAuthResponse(data, res) {
+    if (!res.ok) { showError(data.error || '操作失败'); return; }
+    if (data.token) {
+      localStorage.setItem('wp_token', data.token);
+      localStorage.setItem('wp_user', JSON.stringify(data.user));
+      sessionStorage.removeItem('wp_view_only');
+      showSuccess('成功！正在跳转...');
+      setTimeout(() => { window.location.href = '/'; }, 800);
+    }
+  }
+
+  // ── Tab 1: Account Login ─────────────
+  $('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showError('');
+    const login = $('loginField').value.trim();
+    const password = $('loginPassword').value;
+    if (!login || !password) { showError('请填写所有字段'); return; }
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ login, password })
+      });
+      const data = await res.json();
+      handleAuthResponse(data, res);
+    } catch { showError('网络错误，请重试'); }
+  });
+
+  $('toForgotLink').addEventListener('click', () => switchTab('forgot'));
+
+  // ── Tab 2: Phone Login ───────────────
+  $('phoneModeSwitch').addEventListener('click', () => {
+    state.phoneMode = state.phoneMode === 'password' ? 'sms' : 'password';
+    updatePhoneModeUI();
+    showError('');
+  });
+
+  function updatePhoneModeUI() {
+    const isSms = state.phoneMode === 'sms';
+    $('phonePwdMode').style.display = isSms ? 'none' : '';
+    $('phoneSmsMode').style.display = isSms ? '' : 'none';
+    $('phoneModeSwitch').textContent = isSms ? '切换到密码登录' : '切换验证码登录';
+    $('phoneSubmitBtn').textContent = isSms ? '验证码登录' : '登 录';
+    $('phoneRegisterHint').style.display = 'none';
+  }
+
+  // SMS countdown
+  function startCountdown(btn, phone) {
+    if (state.smsTimer) clearInterval(state.smsTimer);
+    state.smsCountdown = 60;
+    btn.disabled = true;
+    btn.textContent = '重新发送 (60s)';
+    state.smsTimer = setInterval(() => {
+      state.smsCountdown--;
+      if (state.smsCountdown <= 0) {
+        clearInterval(state.smsTimer);
+        state.smsTimer = null;
+        btn.disabled = false;
+        btn.textContent = '发送验证码';
+      } else {
+        btn.textContent = '重新发送 (' + state.smsCountdown + 's)';
+      }
+    }, 1000);
+  }
+
+  async function sendSMS(phone, btn) {
+    if (!/^1[3-9]\d{9}$/.test(phone)) { showError('请输入有效的手机号'); return null; }
+    if (state.smsTimer) { showError('请等待倒计时结束'); return null; }
+    try {
+      const res = await fetch('/api/auth/send-sms', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone })
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.error); return null; }
+      startCountdown(btn, phone);
+      if (data.dev_code) {
+        showError(''); // clear
+        showSuccess('开发模式：验证码为 ' + data.dev_code);
+        return data.dev_code;
+      }
+      showSuccess('验证码已发送');
+      return null;
+    } catch { showError('网络错误'); return null; }
+  }
+
+  $('smsSendBtn').addEventListener('click', () => {
+    const phone = $('phoneFieldSms').value.trim();
+    sendSMS(phone, $('smsSendBtn')).then(code => {
+      if (code) $('phoneCodeField').value = code;
+    });
+  });
+
+  // Phone form submit
+  $('phoneForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showError(''); showSuccess('');
+    const isSms = state.phoneMode === 'sms';
+    const phone = isSms ? $('phoneFieldSms').value.trim() : $('phoneFieldPwd').value.trim();
+    if (!phone) { showError('请输入手机号'); return; }
+
+    try {
+      let res, data;
+      if (isSms) {
+        const code = $('phoneCodeField').value.trim();
+        if (!code) { showError('请输入验证码'); return; }
+        res = await fetch('/api/auth/login-phone', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, code })
+        });
+        data = await res.json();
+        if (data.need_register) {
+          state.pendingPhone = data.phone;
+          $('phoneRegisterHint').style.display = '';
+          return;
+        }
+      } else {
+        const password = $('phonePwdField').value;
+        if (!password) { showError('请输入密码'); return; }
+        res = await fetch('/api/auth/login', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ login: phone, password })
+        });
+        data = await res.json();
+      }
+      handleAuthResponse(data, res);
+    } catch { showError('网络错误，请重试'); }
+  });
+
+  // "立即注册" from phone login
+  $('toRegisterFromPhone').addEventListener('click', () => {
+    if (state.pendingPhone) $('regPhone').value = state.pendingPhone;
+    switchTab('register');
+  });
+
+  // ── Tab 3: Register ──────────────────
+  // SMS button for register
+  $('regPhone').addEventListener('input', () => {
+    const phone = $('regPhone').value.trim();
+    $('regSmsBtn').disabled = !phone || phone.length < 11;
+  });
+
+  $('regSmsBtn').addEventListener('click', () => {
+    const phone = $('regPhone').value.trim();
+    sendSMS(phone, $('regSmsBtn')).then(code => {
+      if (code) {
+        $('regSmsCodeWrap').style.display = '';
+        $('regSmsCode').value = code;
+      } else {
+        $('regSmsCodeWrap').style.display = '';
+      }
+    });
+  });
+
+  $('registerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showError('');
+    const username = $('regUsername').value.trim();
+    const email = $('regEmail').value.trim();
+    const password = $('regPassword').value;
+    const phone = $('regPhone').value.trim();
+
+    if (!username || !email || !password) { showError('请填写必填字段'); return; }
+    if (phone.length > 0 && phone.length < 11) { showError('手机号格式不正确'); return; }
+
+    try {
+      let res, data;
+      if (phone && phone.length === 11) {
+        // Phone registration
+        const code = $('regSmsCode').value.trim();
+        if (!code) { showError('请输入短信验证码'); return; }
+        res = await fetch('/api/auth/register-phone', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, email, phone, code, password })
+        });
+        data = await res.json();
+      } else {
+        // Email-only registration (existing flow)
+        res = await fetch('/api/auth/register', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, email, password })
+        });
+        data = await res.json();
+      }
+      handleAuthResponse(data, res);
+    } catch { showError('网络错误，请重试'); }
+  });
+
+  // ── Tab 4: Forgot Password ───────────
+  function setForgotStep(step) {
+    state.forgotStep = step;
+    $('forgotForm1').style.display = step === 1 ? '' : 'none';
+    $('forgotForm2').style.display = step === 2 ? '' : 'none';
+    $('forgotStep1').className = 'forgot-step' + (step >= 1 ? ' active' : '');
+    $('forgotStep1').classList.toggle('done', step > 1);
+    $('forgotStep2').className = 'forgot-step' + (step === 2 ? ' active' : '');
+    $('forgotDivider').classList.toggle('done', step > 1);
+    showError('');
+    showSuccess('');
+  }
+
+  $('forgotForm1').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showError('');
+    const email = $('forgotEmail').value.trim();
+    if (!email) { showError('请输入邮箱'); return; }
+
+    $('forgotSendBtn').textContent = '发送中...';
+    $('forgotSendBtn').disabled = true;
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.error); return; }
+
+      if (data.dev_token) {
+        state.resetToken = data.dev_token;
+      }
+      if (data.dev_code) {
+        showSuccess('开发模式：验证码为 ' + data.dev_code + '，已自动填入');
+        $('forgotCode').value = data.dev_code;
+      } else {
+        showSuccess('重置码已发送（如果该邮箱已注册）');
+      }
+      setForgotStep(2);
+    } catch { showError('网络错误，请重试'); }
+    finally { $('forgotSendBtn').textContent = '发送重置码'; $('forgotSendBtn').disabled = false; }
+  });
+
+  $('forgotForm2').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showError(''); showSuccess('');
+    const code = $('forgotCode').value.trim();
+    const newPwd = $('forgotNewPwd').value;
+    const newPwd2 = $('forgotNewPwd2').value;
+
+    if (!code) { showError('请输入验证码'); return; }
+    if (!newPwd || newPwd.length < 6) { showError('新密码至少6位'); return; }
+    if (newPwd !== newPwd2) { showError('两次密码输入不一致'); return; }
+    if (!state.resetToken) { showError('缺少重置令牌，请重新获取验证码'); return; }
+
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: state.resetToken, code, new_password: newPwd })
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.error); return; }
+
+      showSuccess(data.message || '密码已重置');
+      state.resetToken = null;
+      setForgotStep(1);
+      setTimeout(() => switchTab('login'), 2000);
+    } catch { showError('网络错误，请重试'); }
+  });
+
+  $('backFromForgot').addEventListener('click', () => {
+    setForgotStep(1);
+    switchTab('login');
+  });
+
+  // ── WeChat Login ─────────────────────
+  (async function initWeChat() {
+    try {
+      const res = await fetch('/api/auth/wechat/auth-url');
+      const data = await res.json();
+      if (data.enabled) {
+        $('wechatSection').style.display = '';
+        $('wechatLoginBtn').href = data.url;
+      }
+    } catch { /* WeChat not available, button stays hidden */ }
+  })();
+
+  // ── Init ─────────────────────────────
+  (function init() {
+    const saved = localStorage.getItem('wp_theme');
+    if (saved) document.documentElement.setAttribute('data-theme', saved);
+  })();
+})();
 </script>
 </body>
 </html>

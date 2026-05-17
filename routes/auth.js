@@ -1,7 +1,12 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
 const { getDB } = require('../db');
 const { authMiddleware, generateToken, setTokenCookie, clearTokenCookie } = require('../middleware/auth');
+
+const isDev = process.env.NODE_ENV !== 'production';
+const HAS_SMS = !!(process.env.SMS_API_KEY && process.env.SMS_API_SECRET);
+const HAS_WECHAT = !!(process.env.WECHAT_APP_ID && process.env.WECHAT_APP_SECRET);
 
 function register(router) {
   // ═══════════════════════════════════════
@@ -44,7 +49,7 @@ function register(router) {
     const { login, password } = req.body;
     const db = getDB();
 
-    const user = db.prepare('SELECT * FROM users WHERE username = ? OR email = ?').get(login, login);
+    const user = db.prepare('SELECT * FROM users WHERE username = ? OR email = ? OR phone = ?').get(login, login, login);
     if (!user) return res.status(401).json({ error: '用户名或密码错误' });
 
     if (!bcrypt.compareSync(password, user.password_hash)) {
@@ -203,6 +208,271 @@ function register(router) {
     const db = getDB();
     db.prepare('DELETE FROM favorites WHERE user_id = ? AND photo_id = ?').run(req.user.id, req.params.photoId);
     res.json({ favorited: false });
+  });
+
+  // ═══════════════════════════════════════
+  // POST /api/auth/forgot-password
+  // ═══════════════════════════════════════
+  router.post('/api/auth/forgot-password', [
+    body('email').isEmail().normalizeEmail().withMessage('请输入有效的邮箱地址'),
+  ], (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ error: errors.array()[0].msg });
+
+    const { email } = req.body;
+    const db = getDB();
+    const user = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+
+    // ★ 无论用户是否存在，都返回成功（防止邮箱枚举）
+    if (!user) {
+      return res.json({ success: true, message: '如果该邮箱已注册，重置码已发送' });
+    }
+
+    const code = crypto.randomInt(100000, 999999).toString();
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = bcrypt.hashSync(rawToken, 10);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+    db.prepare('INSERT INTO password_resets (user_id, token_hash, code, expires_at) VALUES (?, ?, ?, ?)')
+      .run(user.id, tokenHash, code, expiresAt);
+
+    const resp = { success: true, message: '如果该邮箱已注册，重置码已发送' };
+    if (isDev || !process.env.SMTP_HOST) {
+      resp.dev_note = '开发模式：生产环境会通过邮件发送此验证码';
+      resp.dev_token = rawToken;
+      resp.dev_code = code;
+    }
+    res.json(resp);
+  });
+
+  // ═══════════════════════════════════════
+  // POST /api/auth/reset-password
+  // ═══════════════════════════════════════
+  router.post('/api/auth/reset-password', [
+    body('token').notEmpty().withMessage('缺少重置令牌'),
+    body('code').isLength({ min: 6, max: 6 }).withMessage('验证码为6位数字'),
+    body('new_password').isLength({ min: 6 }).withMessage('新密码至少6位'),
+  ], (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ error: errors.array()[0].msg });
+
+    const { token, code, new_password } = req.body;
+    const db = getDB();
+
+    const reset = db.prepare("SELECT * FROM password_resets WHERE used = 0 AND expires_at > datetime('now') ORDER BY created_at DESC LIMIT 10").all();
+
+    let matched = null;
+    for (const r of reset) {
+      if (bcrypt.compareSync(token, r.token_hash) && r.code === code) {
+        matched = r;
+        break;
+      }
+    }
+
+    if (!matched) {
+      return res.status(400).json({ error: '重置链接无效或已过期' });
+    }
+
+    const passwordHash = bcrypt.hashSync(new_password, 10);
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, matched.user_id);
+    db.prepare('UPDATE password_resets SET used = 1 WHERE user_id = ?').run(matched.user_id);
+
+    res.json({ success: true, message: '密码已重置，请重新登录' });
+  });
+
+  // ═══════════════════════════════════════
+  // POST /api/auth/send-sms
+  // ═══════════════════════════════════════
+  router.post('/api/auth/send-sms', [
+    body('phone').matches(/^1[3-9]\d{9}$/).withMessage('请输入有效的手机号'),
+  ], (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ error: errors.array()[0].msg });
+
+    const { phone } = req.body;
+    const db = getDB();
+
+    // 60秒内同号限发
+    const recent = db.prepare("SELECT created_at FROM sms_codes WHERE phone = ? AND created_at > datetime('now', '-60 seconds')").get(phone);
+    if (recent) {
+      const seconds = Math.ceil(60 - (Date.now() - new Date(recent.created_at + 'Z').getTime()) / 1000);
+      return res.status(429).json({ error: `请${Math.max(seconds, 1)}秒后再试` });
+    }
+
+    const code = crypto.randomInt(100000, 999999).toString();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+
+    db.prepare('INSERT INTO sms_codes (phone, code, expires_at) VALUES (?, ?, ?)').run(phone, code, expiresAt);
+
+    if (HAS_SMS) {
+      // TODO: 接入阿里云/腾讯云短信发送
+      console.log(`[SMS] 发送验证码到 ${phone}: ${code}`);
+    }
+
+    const resp = { success: true, expires_in: 300 };
+    if (!HAS_SMS) {
+      resp.dev_note = '短信服务未配置，开发模式显示验证码';
+      resp.dev_code = code;
+    }
+    res.json(resp);
+  });
+
+  // ═══════════════════════════════════════
+  // POST /api/auth/login-phone
+  // ═══════════════════════════════════════
+  router.post('/api/auth/login-phone', [
+    body('phone').matches(/^1[3-9]\d{9}$/).withMessage('请输入有效的手机号'),
+  ], (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ error: errors.array()[0].msg });
+
+    const { phone, password, code } = req.body;
+    const db = getDB();
+
+    // 验证码模式
+    if (code) {
+      const smsRow = db.prepare("SELECT * FROM sms_codes WHERE phone = ? AND code = ? AND used = 0 AND expires_at > datetime('now') ORDER BY created_at DESC LIMIT 1").get(phone, code);
+      if (!smsRow) return res.status(400).json({ error: '验证码无效或已过期' });
+
+      db.prepare('UPDATE sms_codes SET used = 1 WHERE id = ?').run(smsRow.id);
+
+      let user = db.prepare('SELECT * FROM users WHERE phone = ?').get(phone);
+      if (!user) {
+        return res.json({ need_register: true, phone });
+      }
+
+      if (user.banned) return res.status(403).json({ error: '账号已被封禁' });
+
+      const token = generateToken(user);
+      setTokenCookie(res, token);
+      const { password_hash, ...safeUser } = user;
+      return res.json({ user: safeUser, token });
+    }
+
+    // 密码模式
+    if (!password) return res.status(400).json({ error: '请输入密码或验证码' });
+    if (password.length < 6) return res.status(400).json({ error: '密码至少6位' });
+
+    const user = db.prepare('SELECT * FROM users WHERE phone = ?').get(phone);
+    if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+      return res.status(401).json({ error: '手机号或密码错误' });
+    }
+
+    if (user.banned) return res.status(403).json({ error: '账号已被封禁' });
+
+    const token = generateToken(user);
+    setTokenCookie(res, token);
+    const { password_hash, ...safeUser } = user;
+    res.json({ user: safeUser, token });
+  });
+
+  // ═══════════════════════════════════════
+  // POST /api/auth/register-phone
+  // ═══════════════════════════════════════
+  router.post('/api/auth/register-phone', [
+    body('username').trim().isLength({ min: 2, max: 30 }).withMessage('用户名2-30个字符'),
+    body('phone').matches(/^1[3-9]\d{9}$/).withMessage('请输入有效的手机号'),
+    body('code').isLength({ min: 6, max: 6 }).withMessage('验证码为6位数字'),
+    body('password').isLength({ min: 6 }).withMessage('密码至少6位'),
+  ], (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ error: errors.array()[0].msg });
+
+    const { username, phone, code, password, email } = req.body;
+    const db = getDB();
+
+    // 验证短信码
+    const smsRow = db.prepare("SELECT * FROM sms_codes WHERE phone = ? AND code = ? AND used = 0 AND expires_at > datetime('now') ORDER BY created_at DESC LIMIT 1").get(phone, code);
+    if (!smsRow) return res.status(400).json({ error: '验证码无效或已过期' });
+
+    // 检查用户名/手机号重复
+    const existing = db.prepare('SELECT id FROM users WHERE username = ? OR phone = ?').get(username, phone);
+    if (existing) return res.status(409).json({ error: '用户名或手机号已被注册' });
+
+    const hash = bcrypt.hashSync(password, 10);
+    db.prepare('INSERT INTO users (username, email, phone, phone_verified, password_hash) VALUES (?, ?, ?, 1, ?)').run(username, email || '', phone, hash);
+    db.prepare('UPDATE sms_codes SET used = 1 WHERE id = ?').run(smsRow.id);
+
+    const user = db.prepare('SELECT id, username, email, avatar, role, phone, created_at FROM users WHERE id = ?').get(db.prepare('SELECT last_insert_rowid() AS id').get().id);
+    const token = generateToken(user);
+    setTokenCookie(res, token);
+    res.status(201).json({ user, token });
+  });
+
+  // ═══════════════════════════════════════
+  // GET /api/auth/wechat/auth-url
+  // ═══════════════════════════════════════
+  router.get('/api/auth/wechat/auth-url', (_req, res) => {
+    if (!HAS_WECHAT) {
+      return res.json({ enabled: false });
+    }
+
+    const redirectUri = process.env.WECHAT_REDIRECT_URI || `http://localhost:${process.env.PORT || 3000}/api/auth/wechat/callback`;
+    const state = crypto.randomBytes(16).toString('hex');
+
+    const url = 'https://open.weixin.qq.com/connect/qrconnect'
+      + `?appid=${process.env.WECHAT_APP_ID}`
+      + `&redirect_uri=${encodeURIComponent(redirectUri)}`
+      + '&response_type=code'
+      + '&scope=snsapi_login'
+      + `&state=${state}`
+      + '#wechat_redirect';
+
+    res.json({ enabled: true, url, state });
+  });
+
+  // ═══════════════════════════════════════
+  // GET /api/auth/wechat/callback
+  // ═══════════════════════════════════════
+  router.get('/api/auth/wechat/callback', async (req, res) => {
+    const { code, state } = req.query;
+
+    if (!code) {
+      return res.redirect('/login.html?error=wechat_cancelled');
+    }
+
+    if (!HAS_WECHAT) {
+      return res.redirect('/login.html?error=wechat_disabled');
+    }
+
+    try {
+      // 用 code 换取 access_token 和 openid
+      const tokenUrl = 'https://api.weixin.qq.com/sns/oauth2/access_token'
+        + `?appid=${process.env.WECHAT_APP_ID}`
+        + `&secret=${process.env.WECHAT_APP_SECRET}`
+        + `&code=${encodeURIComponent(code)}`
+        + '&grant_type=authorization_code';
+
+      const tokenRes = await fetch(tokenUrl);
+      const tokenData = await tokenRes.json();
+
+      if (tokenData.errcode) {
+        console.error('[wechat] 获取access_token失败:', tokenData);
+        return res.redirect('/login.html?error=wechat_failed');
+      }
+
+      const { openid, unionid } = tokenData;
+      const db = getDB();
+
+      let user = db.prepare('SELECT * FROM users WHERE wechat_openid = ?').get(openid);
+
+      if (!user) {
+        // 自动注册
+        const username = 'wx_' + crypto.randomBytes(4).toString('hex');
+        db.prepare('INSERT INTO users (username, email, wechat_openid, wechat_unionid, password_hash) VALUES (?, ?, ?, ?, ?)')
+          .run(username, '', openid, unionid || '', '');
+        user = db.prepare('SELECT * FROM users WHERE id = ?').get(db.prepare('SELECT last_insert_rowid() AS id').get().id);
+      }
+
+      const token = generateToken(user);
+      setTokenCookie(res, token);
+
+      // 重定向到首页，通过 URL 传递 token 给前端
+      res.redirect(`/?wechat_token=${token}`);
+    } catch (err) {
+      console.error('[wechat] callback error:', err);
+      res.redirect('/login.html?error=wechat_failed');
+    }
   });
 }
 
