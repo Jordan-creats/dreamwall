@@ -22,10 +22,7 @@ let currentUser = null;
 
 async function loadUser() {
   try {
-    const headers = {};
-    const token = localStorage.getItem('wp_token');
-    if (token) headers['Authorization'] = 'Bearer ' + token;
-    const res = await fetch('/api/auth/me', { headers });
+    const res = await fetch('/api/auth/me');
     if (res.ok) {
       currentUser = await res.json();
       localStorage.setItem('wp_user', JSON.stringify(currentUser));
@@ -73,7 +70,7 @@ async function initAuthUI() {
       logoutBtn.addEventListener('click', async (e) => {
         e.preventDefault();
         try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) { console.error('[logout]', e); }
-        localStorage.removeItem('wp_token'); localStorage.removeItem('wp_user');
+        localStorage.removeItem('wp_user');
         window.location.reload();
       });
     }
@@ -151,17 +148,15 @@ function handleWeChatCallback() {
   const params = new URLSearchParams(window.location.search);
   const token = params.get('wechat_token');
   if (token) {
-    localStorage.setItem('wp_token', token);
     sessionStorage.removeItem('wp_view_only');
-    // 移除 URL 参数
     const url = new URL(window.location);
     url.searchParams.delete('wechat_token');
     window.history.replaceState({}, '', url);
-    // 异步获取用户信息
-    fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } })
+    fetch('/api/auth/me')
       .then(r => r.json())
       .then(u => { if (u && u.id) localStorage.setItem('wp_user', JSON.stringify(u)); })
       .catch(() => {});
+  }
   }
 }
 

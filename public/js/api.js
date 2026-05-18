@@ -1,10 +1,7 @@
 const BASE = '/api';
 
 async function request(url, options = {}) {
-  // Attach auth header if token exists
-  const token = localStorage.getItem('wp_token');
   const headers = { ...options.headers };
-  if (token) headers['Authorization'] = 'Bearer ' + token;
   if (!(options.body instanceof FormData)) headers['Content-Type'] = 'application/json';
 
   const res = await fetch(url, { ...options, headers });

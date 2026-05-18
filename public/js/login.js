@@ -1,5 +1,5 @@
 (function() {
-  if (localStorage.getItem('wp_token')) {
+  if (localStorage.getItem('wp_user')) {
     window.location.href = '/';
     return;
   }
@@ -40,7 +40,6 @@
   function handleAuthResponse(data, res) {
     if (!res.ok) { showError(data.error || '操作失败'); return; }
     if (data.token) {
-      localStorage.setItem('wp_token', data.token);
       localStorage.setItem('wp_user', JSON.stringify(data.user));
       sessionStorage.removeItem('wp_view_only');
       showSuccess('成功！正在跳转...');

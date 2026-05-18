@@ -6,7 +6,7 @@ import { loadAndRender } from './gallery.js';
 let pendingFiles = [];
 
 function isLoggedIn() {
-  return !!(localStorage.getItem('wp_token') || localStorage.getItem('wp_user'));
+  return !!localStorage.getItem('wp_user');
 }
 
 // ★ 视图模式 — 未登录用户只能查看，不能下载/上传

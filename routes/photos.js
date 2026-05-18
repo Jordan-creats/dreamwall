@@ -17,6 +17,28 @@ function isVideo(mimetype) { return mimetype && mimetype.startsWith('video/'); }
 
 function register(router, upload) {
   // ═══════════════════════════════════════
+  // GET /api/tags/trending — lightweight top tags (no full photo fetch)
+  // ═══════════════════════════════════════
+  router.get('/api/tags/trending', (_req, res) => {
+    const db = getDB();
+    const rows = db.prepare(
+      "SELECT tags FROM photos WHERE status = 'approved' AND tags != '' AND tags IS NOT NULL ORDER BY download_count DESC LIMIT 40"
+    ).all();
+    const tagMap = {};
+    rows.forEach(r => {
+      (r.tags || '').split(',').forEach(t => {
+        const tag = t.trim();
+        if (tag) tagMap[tag] = (tagMap[tag] || 0) + 1;
+      });
+    });
+    const tags = Object.entries(tagMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12)
+      .map(([name, count]) => ({ name, count }));
+    res.json({ tags });
+  });
+
+  // ═══════════════════════════════════════
   // GET /api/photos — list with filters + pagination
   // ═══════════════════════════════════════
   router.get('/api/photos', optionalAuth, (req, res) => {

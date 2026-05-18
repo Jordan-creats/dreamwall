@@ -3,11 +3,13 @@
    ═══════════════════════════════════════ */
 
 // ── Canvas Particle System ──────────
+let rafId = null;
 export function initParticles() {
   const canvas = document.getElementById('particleCanvas');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   let w, h, particles = [];
+  const isMobile = window.innerWidth < 768;
 
   function resize() {
     w = canvas.width = window.innerWidth;
@@ -16,7 +18,9 @@ export function initParticles() {
   resize();
   window.addEventListener('resize', resize);
 
-  const count = Math.min(60, Math.floor((w * h) / 15000));
+  // ★ Reduce particles on mobile for performance
+  const divisor = isMobile ? 40000 : 15000;
+  const count = Math.min(isMobile ? 20 : 60, Math.floor((w * h) / divisor));
   for (let i = 0; i < count; i++) {
     particles.push({
       x: Math.random() * w, y: Math.random() * h,
@@ -38,25 +42,36 @@ export function initParticles() {
       ctx.fillStyle = `hsla(${p.hue},70%,65%,${p.alpha})`;
       ctx.fill();
     }
-    // Lines between close particles
-    for (let i = 0; i < particles.length; i++) {
-      for (let j = i + 1; j < particles.length; j++) {
-        const dx = particles[i].x - particles[j].x;
-        const dy = particles[i].y - particles[j].y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 100) {
-          ctx.beginPath();
-          ctx.moveTo(particles[i].x, particles[i].y);
-          ctx.lineTo(particles[j].x, particles[j].y);
-          ctx.strokeStyle = `rgba(168,85,247,${.04 * (1 - dist / 100)})`;
-          ctx.lineWidth = .5;
-          ctx.stroke();
+    // ★ Skip N² distance lines on mobile
+    if (!isMobile) {
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 100) {
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = `rgba(168,85,247,${.04 * (1 - dist / 100)})`;
+            ctx.lineWidth = .5;
+            ctx.stroke();
+          }
         }
       }
     }
-    requestAnimationFrame(draw);
+    rafId = requestAnimationFrame(draw);
   }
   draw();
+
+  // ★ Pause when tab hidden, resume when visible
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    } else {
+      if (!rafId) draw();
+    }
+  });
 }
 
 // ── Mouse Glow Effect ──────────────
@@ -116,7 +131,7 @@ export async function initBanners() {
     const dots = document.getElementById('bannerDots');
     track.innerHTML = active.map(b => `
       <a class="banner-slide" href="${b.link_url || '#'}" target="${b.link_url ? '_self' : '_self'}">
-        <img src="${b.image_url}" alt="${b.title}" />
+        <img src="${b.image_url}" alt="${b.title}" loading="lazy" />
         ${b.title ? `<div class="banner-info"><h3>${b.title}</h3></div>` : ''}
       </a>
     `).join('');
@@ -176,18 +191,12 @@ export async function initFeatured() {
 export async function initTrendingTags() {
   const container = document.getElementById('heroTags');
   try {
-    const res = await fetch('/api/photos?sort=popular&per_page=30');
+    const res = await fetch('/api/tags/trending');
     const data = await res.json();
-    const tagMap = {};
-    (data.photos || []).forEach(p => {
-      (p.tags || '').split(',').map(t => t.trim()).filter(Boolean).forEach(t => {
-        tagMap[t] = (tagMap[t] || 0) + 1;
-      });
-    });
-    const tags = Object.entries(tagMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const tags = data.tags || [];
     if (!tags.length) return;
-    container.innerHTML = tags.map(([t, c]) =>
-      `<a href="/?search=${encodeURIComponent(t)}" class="hero-tag">${t}<span style="font-size:.64rem;opacity:.5;margin-left:3px">${c}</span></a>`
+    container.innerHTML = tags.map(t =>
+      `<a href="/?search=${encodeURIComponent(t.name)}" class="hero-tag">${t.name}<span style="font-size:.64rem;opacity:.5;margin-left:3px">${t.count}</span></a>`
     ).join('');
   } catch (e) { console.error('[trendingTags]', e); }
 }
