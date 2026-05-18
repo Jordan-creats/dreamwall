@@ -249,7 +249,7 @@ function register(router) {
     }
 
     const resp = { success: true, message: '如果该邮箱已注册，重置码已发送' };
-    if (!HAS_MAIL) {
+    if (!HAS_MAIL && isDev) {
       resp.dev_note = '邮件服务未配置，开发模式显示验证码';
       resp.dev_token = rawToken;
       resp.dev_code = code;
@@ -322,7 +322,7 @@ function register(router) {
     }
 
     const resp = { success: true, expires_in: 300 };
-    if (!HAS_SMS) {
+    if (!HAS_SMS && isDev) {
       resp.dev_note = '短信服务未配置，开发模式显示验证码';
       resp.dev_code = code;
     }

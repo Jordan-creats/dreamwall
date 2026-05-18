@@ -28,20 +28,43 @@ if (process.env.TRUST_PROXY !== 'false') {
 // ════════════════════════════════════
 // SECURITY
 // ════════════════════════════════════
+
+// Nonce generation — one per request for CSP
+app.use((_req, res, next) => {
+  res.locals.nonce = crypto.randomBytes(16).toString('base64');
+  next();
+});
+
+// CSP with nonce-based script-src (no unsafe-inline for scripts)
+app.use((_req, res, next) => {
+  const nonce = res.locals.nonce;
+  res.setHeader(
+    'Content-Security-Policy',
+    [
+      "default-src 'self'",
+      `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https://res.cloudinary.com https://*.cloudinary.com",
+      "media-src 'self' blob: https://res.cloudinary.com https://*.cloudinary.com",
+      "connect-src 'self' https://api.cloudinary.com",
+      "font-src 'self'",
+    ].join('; ')
+  );
+  next();
+});
+
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "blob:", "https://res.cloudinary.com", "https://*.cloudinary.com"],
-      mediaSrc: ["'self'", "blob:", "https://res.cloudinary.com", "https://*.cloudinary.com"],
-      connectSrc: ["'self'", "https://api.cloudinary.com"],
-      fontSrc: ["'self'"],
-    },
-  },
+  contentSecurityPolicy: false, // ★ handled by middleware above
   crossOriginResourcePolicy: { policy: 'same-site' },
 }));
+
+// Helper: serve HTML file with nonce injection
+function serveHTML(filePath) {
+  return (_req, res) => {
+    const html = require('fs').readFileSync(filePath, 'utf-8');
+    res.send(html.replace(/__CSP_NONCE__/g, res.locals.nonce));
+  };
+}
 
 // Rate limiting
 const limiter = rateLimit({
@@ -108,9 +131,9 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser()); // ★ 解析 Cookie → req.cookies
 
-// Static assets with caching
+// Static assets — HTML is served dynamically (nonce injection)
 const staticOpts = isProd ? { maxAge: '7d', immutable: true } : {};
-app.use(express.static(path.join(__dirname, 'public'), staticOpts));
+app.use(express.static(path.join(__dirname, 'public'), { ...staticOpts, index: false }));
 
 // 本地 uploads — 始终开启作为兜底（Cloudinary 优先，本地兼容旧数据）
 const cld = initCloudinary();
@@ -128,6 +151,17 @@ if (!cld) {
 } else {
   console.log('[server] Cloudinary 已配置 — 上传优先使用 CDN，本地作为兜底');
 }
+
+// ════════════════════════════════════
+// HTML PAGES — served dynamically for CSP nonce injection
+// ════════════════════════════════════
+app.get('/',            serveHTML(path.join(__dirname, 'public', 'index.html')));
+app.get('/index.html',  serveHTML(path.join(__dirname, 'public', 'index.html')));
+app.get('/login.html',  serveHTML(path.join(__dirname, 'public', 'login.html')));
+app.get('/admin.html',  serveHTML(path.join(__dirname, 'public', 'admin.html')));
+app.get('/popular.html',serveHTML(path.join(__dirname, 'public', 'popular.html')));
+app.get('/profile.html',serveHTML(path.join(__dirname, 'public', 'profile.html')));
+app.get('/wallpaper.html', serveHTML(path.join(__dirname, 'public', 'wallpaper.html')));
 
 // ════════════════════════════════════
 // API ROUTES
@@ -181,9 +215,7 @@ app.get('/sitemap.xml', (_req, res) => {
 // ════════════════════════════════════
 // SPA FALLBACK
 // ════════════════════════════════════
-app.get('/{*any}', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+app.get('/{*any}', serveHTML(path.join(__dirname, 'public', 'index.html')));
 
 // ════════════════════════════════════
 // ERROR HANDLER

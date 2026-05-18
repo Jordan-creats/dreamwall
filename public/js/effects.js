@@ -151,7 +151,14 @@ export async function initFeatured() {
     section.style.display = '';
 
     document.getElementById('featuredGrid').innerHTML = photos.map((p, i) => {
-      const src = p.url || `/uploads/${p.filename}`;
+      let src = p.url || '/uploads/' + p.filename;
+      if (src.includes('cloudinary.com') && src.includes('/upload/')) {
+        src = src.replace('/upload/', '/upload/w_600,c_scale,q_auto,f_auto/');
+      } else if (p.thumbnail && p.thumbnail.startsWith('http')) {
+        src = p.thumbnail;
+      } else if (p.thumbnail) {
+        src = '/uploads/thumbs/' + p.thumbnail;
+      }
       return `
         <a href="/wallpaper.html?id=${p.id}" class="featured-card">
           <span class="fc-badge">#${i + 1} 推荐</span>

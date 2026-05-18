@@ -146,13 +146,13 @@ function closeDrawer() {
 }
 
 function handleFiles(files) {
-  pendingFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
-  if (!pendingFiles.length) { toast('请选择图片文件', { error: true }); return; }
+  pendingFiles = Array.from(files).filter(f => f.type.startsWith('image/') || f.type.startsWith('video/'));
+  if (!pendingFiles.length) { toast('请选择图片或视频文件', { error: true }); return; }
 
   const preview = document.getElementById('uploadPreview');
   preview.innerHTML = pendingFiles.map((f, i) => `
     <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:.82rem;">
-      <span style="color:var(--accent);font-size:1.1rem;">🖼️</span>
+      <span style="color:var(--accent);font-size:1.1rem;">${f.type.startsWith('video/') ? '🎬' : '🖼️'}</span>
       <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.name}</span>
       <span style="color:var(--text-muted);white-space:nowrap;">${(f.size/1024).toFixed(0)} KB</span>
     </div>

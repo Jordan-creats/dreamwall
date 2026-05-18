@@ -6,8 +6,8 @@
 <title>热门排行 · 光影集</title>
 <meta name="description" content="光影集热门壁纸排行 — 下载量最高的高清壁纸与动态壁纸" />
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="css/style.css?v=20260517" />
-<script src="js/shared.js?v=20260517"></script>
+<link rel="stylesheet" href="css/style.css?v=20260518" />
+<script src="js/shared.js?v=20260518" nonce="__CSP_NONCE__"></script>
 <style>
   .popular-page { min-height: 100vh; background: var(--bg); }
   .popular-hero {
@@ -74,43 +74,6 @@
 
 <div class="rank-list" id="rankList"></div>
 
-<script>
-let period = 'all';
-
-async function loadRanking() {
-  const timeParam = period === 'all' ? '' : `&time=${period}`;
-  try {
-    const res = await fetch(`/api/photos?sort=popular&per_page=50${timeParam}`);
-    const data = await res.json();
-    const photos = data.photos || [];
-
-    document.getElementById('rankList').innerHTML = photos.map((p, i) => `
-      <a href="/wallpaper.html?id=${p.id}" class="rank-item">
-        <div class="rank-num">${i + 1}</div>
-        <img class="rank-thumb" src="${getSrc(p)}" alt="" loading="lazy" />
-        <div class="rank-info">
-          <h3>${escapeHtml(p.title || p.original_name)}</h3>
-          <div class="meta">${p.width}×${p.height} · ${p.album_name || '未分类'} · ${p.media_type === 'video' ? '🎬 动态' : '🖼️ 静态'}</div>
-        </div>
-        <div class="rank-stats">
-          <div class="dl">${p.download_count || 0}</div>
-          <div class="lbl">次下载</div>
-        </div>
-      </a>
-    `).join('') || '<p style="text-align:center;color:var(--text-muted);padding:40px">暂无数据</p>';
-  } catch (e) { console.error('[popular loadRanking]', e); }
-}
-
-document.querySelectorAll('[data-period]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('[data-period]').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    period = btn.dataset.period;
-    loadRanking();
-  });
-});
-
-loadRanking();
-</script>
+<script src="js/popular.js?v=20260518" nonce="__CSP_NONCE__"></script>
 </body>
 </html>

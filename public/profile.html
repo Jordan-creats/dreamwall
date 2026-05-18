@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>个人主页 · 光影集</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="css/style.css?v=20260517" />
-<script src="js/shared.js?v=20260517"></script>
+<link rel="stylesheet" href="css/style.css?v=20260518" />
+<script src="js/shared.js?v=20260518" nonce="__CSP_NONCE__"></script>
 <style>
   .profile-page { min-height: 100vh; background: var(--bg); }
   .profile-cover { height: 160px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); position: relative; }
@@ -70,71 +70,6 @@
   <div class="profile-grid" id="profileGrid"></div>
 </div>
 
-<script>
-const urlParams = new URLSearchParams(window.location.search);
-const username = urlParams.get('u') || (() => {
-  try { return JSON.parse(localStorage.getItem('wp_user')).username; } catch { return null; }
-})();
-
-if (!username) window.location.href = '/login.html';
-
-document.title = `${username} · 光影集`;
-
-let currentTab = 'uploads';
-
-async function load() {
-  try {
-    const res = await fetch(`/api/user/${username}`);
-    const data = await res.json();
-    if (!res.ok) { document.body.innerHTML = '<div class="empty-state" style="padding:100px"><h3>用户不存在</h3></div>'; return; }
-
-    document.getElementById('profileAvatar').textContent = data.user.username.charAt(0).toUpperCase();
-    document.getElementById('profileName').textContent = data.user.username;
-    document.getElementById('profileRole').textContent = data.user.role === 'admin' ? '管理员' : '注册用户';
-    document.getElementById('statUploads').textContent = data.user.uploads;
-    document.getElementById('statFavs').textContent = data.user.favorites;
-    document.getElementById('statDls').textContent = data.user.downloads;
-
-    renderPhotos(data.photos);
-  } catch { document.body.innerHTML = '<div class="empty-state" style="padding:100px"><h3>加载失败</h3></div>'; }
-}
-
-function renderPhotos(photos) {
-  const grid = document.getElementById('profileGrid');
-  if (!photos.length) { grid.innerHTML = '<div class="empty-profile">暂无壁纸</div>'; return; }
-  grid.innerHTML = photos.map(p => `
-    <div class="profile-card" onclick="window.open('${getSrc(p)}','_blank')">
-      <img src="${getSrc(p)}" alt="${escapeHtml(p.title || p.original_name)}" loading="lazy" />
-      <div class="pc-body">
-        <div class="pc-title">${escapeHtml(p.title || p.original_name)}</div>
-        <div class="pc-meta">⬇ ${p.download_count || 0} · ${p.album_name || '未分类'}</div>
-      </div>
-    </div>
-  `).join('');
-}
-
-// Tab switching
-document.querySelectorAll('[data-tab]').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    document.querySelectorAll('[data-tab]').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentTab = btn.dataset.tab;
-
-    if (currentTab === 'favorites') {
-      try {
-        const meRes = await fetch('/api/auth/me');
-        if (!meRes.ok) { document.getElementById('profileGrid').innerHTML = '<div class="empty-profile">需要登录才能查看收藏</div>'; return; }
-        const res = await fetch('/api/auth/favorites');
-        const data = await res.json();
-        renderPhotos(data.photos || []);
-      } catch { document.getElementById('profileGrid').innerHTML = '<div class="empty-profile">加载失败</div>'; }
-    } else {
-      load();
-    }
-  });
-});
-
-load();
-</script>
+<script src="js/profile.js?v=20260518" nonce="__CSP_NONCE__"></script>
 </body>
 </html>

@@ -144,7 +144,7 @@ function cardHTML(p, idx) {
           <img src="${thumbSrc}"
                alt="${escapeHtml(p.title || p.original_name)}"
                loading="lazy" decoding="async"
-               onload="this.classList.add('loaded')"
+               data-img-load="1"
                style="background:var(--bg-elevated)" />
         `}
         <div class="card-overlay">
@@ -201,6 +201,11 @@ export function render(photos, append = false) {
     : gallery.querySelectorAll('.card');
 
   newCards.forEach(card => {
+    const img = card.querySelector('img[data-img-load]');
+    if (img) {
+      img.addEventListener('load', () => { img.classList.add('loaded'); });
+      if (img.complete) img.classList.add('loaded');
+    }
     const video = card.querySelector('video');
     if (video) {
       videoObserver.observe(video);
